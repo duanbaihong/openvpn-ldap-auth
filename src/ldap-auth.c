@@ -333,9 +333,10 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   pthread_cond_init (&action_cond, NULL);
 
   /* start our authentication thread */
+  pthread_attr_init(&action_thread_attr);
   pthread_attr_setdetachstate(&action_thread_attr, PTHREAD_CREATE_JOINABLE);
   rc = pthread_create(&action_thread, &action_thread_attr, action_thread_main_loop, context);
-
+  
   switch( rc ){
     case EAGAIN:
       LOGERROR( "pthread_create returned EAGAIN: lacking resources" );
@@ -347,6 +348,7 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
       LOGERROR( "pthread_create returned EPERM: no permission to create thread" );
       break;
     case 0:
+      LOGINFO("current thread status:%d",rc);
       break;
     default:
       LOGERROR( "pthread_create returned an unhandled value: %d", rc );
@@ -515,7 +517,8 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
     action_push( context->action_list, action );
     if( DODEBUG( context->verb ) )
       LOGDEBUG ("Waiting for thread to return");
-    pthread_join( action_thread, NULL );
+    if(action_thread !=0 )
+      pthread_join( action_thread, NULL );
     if( DODEBUG( context->verb ) )
       LOGDEBUG ("Thread returned queries left in queue: %d", list_length( context->action_list ));
     pthread_attr_destroy( &action_thread_attr );
@@ -540,7 +543,8 @@ openvpn_plugin_abort_v1 (openvpn_plugin_handle_t handle)
       action_push( context->action_list, action );
       if( DODEBUG( context->verb ) )
         LOGDEBUG ("Waiting for thread to return");
-      pthread_join( action_thread, NULL );
+      if(action_thread !=0 )
+        pthread_join( action_thread, NULL );
       if( DODEBUG( context->verb ) )
         LOGDEBUG ("Thread returned queries left in queue: %d", list_length( context->action_list ));
       pthread_attr_destroy( &action_thread_attr );
@@ -588,7 +592,7 @@ action_thread_main_loop (void *c)
           break;
         case LDAP_AUTH_ACTION_QUIT:
           if( DOINFO(context->verb ) ){
-            LOGINFO( "Authentication thread received ACTION_QUIT\n");
+            LOGINFO( "Authentication thread received ACTION_QUIT");
           }
           loop = 0;
           break;
