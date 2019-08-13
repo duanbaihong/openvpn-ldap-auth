@@ -29,7 +29,7 @@
 
 #include <ldap.h>
 #include <errno.h>
-#include <sys/time.h>
+#include <time.h>
 #include <stdio.h>
 
 

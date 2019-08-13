@@ -26,6 +26,34 @@
 #include "types.h"
 #include "config.h"
 
+#include <sys/types.h>
+
+#define  IP_RULE_KEYS_BUF   128
+#define  IP_RULE_ITEM_BUF   256
+
+typedef struct ip_perm_rules {
+    u_int   vlen;
+    char    *name;
+    char    *value[IP_RULE_ITEM_BUF];
+} rules_item_t;
+
+typedef struct ip_perm {
+  u_int         klen;
+  rules_item_t  items[IP_RULE_KEYS_BUF];
+} ip_perm_rules_t ;
+
+typedef struct ldap_conf_t
+{
+  u_int len;
+  struct ldap_keymap_t {
+    char  *name;
+    char  *value;
+  } keymaps[IP_RULE_KEYS_BUF];
+} ldap_config_keyvalue_t;
+
+ip_perm_rules_t *iptblrules;
+ldap_config_keyvalue_t *ldapconfig;
+
 
 typedef enum ldap_search_scope{
   LA_SCOPE_BASE = 0,
@@ -98,4 +126,15 @@ extern int config_is_pf_enabled( config_t *c );
 extern int config_is_pf_enabled_for_profile( profile_config_t *p );
 extern int config_is_redirect_gw_enabled( config_t *c );
 extern int config_is_redirect_gw_enabled_for_profile( profile_config_t *p );
+
+// yaml config 
+extern int  config_parse_file_new( config_t *c );
+extern void printf_ldap_config(ldap_config_keyvalue_t *lc);
+extern void printf_iptables_config(ip_perm_rules_t *iprules);
+extern void config_free_iptable_rule(struct ip_perm *rules);
+extern void config_free_ldap(ldap_config_keyvalue_t *ldapconf);
+extern void config_init_iptable_rule(struct ip_perm *rules);
+extern void config_generate_ldap_keyvalue_t(char *key, char *val,u_int i );
+extern int config_init_ldap_iptable(const char *filename);
+
 #endif /* _CNF_H_ */

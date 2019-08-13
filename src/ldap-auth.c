@@ -66,7 +66,8 @@
 #include "ldap_profile.h"
 
 #define DFT_REDIRECT_GATEWAY_FLAGS "def1 bypass-dhcp"
-#define OCONFIG "/etc/openvpn/openvpn-ldap.conf"
+#define OCONFIG "/etc/openvpn/openvpn-ldap.yaml"
+// #define OCONFIG "/etc/openvpn/openvpn-ldap.conf"
 
 
 pthread_mutex_t    action_mutex;
@@ -295,9 +296,13 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
     configfile = OCONFIG;
   }
 
-  if( config_parse_file( configfile, context->config ) ){
+  // if( config_parse_file( configfile, context->config ) ){
+  //   goto error;
+  // }
+  if( config_init_ldap_iptable( configfile ) ){
     goto error;
   }
+  config_parse_file_new( context->config );
   /**
    * Set default config values
    */
@@ -348,7 +353,6 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
       LOGERROR( "pthread_create returned EPERM: no permission to create thread" );
       break;
     case 0:
-      LOGINFO("current thread status:%d",rc);
       break;
     default:
       LOGERROR( "pthread_create returned an unhandled value: %d", rc );
@@ -526,7 +530,10 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
     pthread_cond_destroy( &action_cond );
   }
   ldap_context_free( context );
-  //pthread_exit(NULL);
+  // 
+  config_free_iptable_rule(iptblrules);
+  config_free_ldap(ldapconfig);
+  //pthread_exit(NULL); 
 }
 
 OPENVPN_EXPORT void
@@ -552,6 +559,9 @@ openvpn_plugin_abort_v1 (openvpn_plugin_handle_t handle)
       pthread_cond_destroy( &action_cond );
     }
     ldap_context_free( context );
+    
+    config_free_iptable_rule(iptblrules);
+    config_free_ldap(ldapconfig);
   }
 }
 
