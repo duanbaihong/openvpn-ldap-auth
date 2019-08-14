@@ -65,6 +65,7 @@
 #include "client_context.h"
 #include "ldap_profile.h"
 
+
 #define DFT_REDIRECT_GATEWAY_FLAGS "def1 bypass-dhcp"
 #define OCONFIG "/etc/openvpn/openvpn-ldap.yaml"
 // #define OCONFIG "/etc/openvpn/openvpn-ldap.conf"
@@ -226,7 +227,7 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   daemon_string = get_env ("daemon", envp);
   use_syslog = 0;
   if( daemon_string && daemon_string[0] == '1'){
-    log_redirect = get_env ("daemon_log_redirect", envp);
+    log_redirect = get_env ("daemon_redirect", envp);
     if( !(log_redirect && log_redirect[0] == '1'))
       use_syslog = 1;
   }
@@ -241,7 +242,8 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   /*
    * Intercept the --auth-user-pass-verify callback.
    */
-  *type_mask = OPENVPN_PLUGIN_MASK (OPENVPN_PLUGIN_AUTH_USER_PASS_VERIFY);
+  *type_mask = OPENVPN_PLUGIN_MASK (OPENVPN_PLUGIN_AUTH_USER_PASS_VERIFY)
+               | OPENVPN_PLUGIN_MASK (OPENVPN_PLUGIN_LEARN_ADDRESS);
 
    while ( ( rc = getopt ( string_array_len (argv), (char **)argv, ":H:D:c:t:WZC" ) ) != - 1 ){
     switch( rc ) {
@@ -299,7 +301,7 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   // if( config_parse_file( configfile, context->config ) ){
   //   goto error;
   // }
-  if( config_init_ldap_iptable( configfile ) ){
+  if( config_init_ldap_iptable( configfile, context->verb ) ){
     goto error;
   }
   config_parse_file_new( context->config );
@@ -505,6 +507,30 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
     return OPENVPN_PLUGIN_FUNC_SUCCESS;
   }
 #endif
+  else if(type == OPENVPN_PLUGIN_LEARN_ADDRESS){
+    LOGDEBUG("OPENVPN_PLUGIN_LEARN_ADDRESS");
+    for(int i=0;argv[i]!=NULL;i++)
+    {
+      LOGDEBUG("%s",argv[i]);
+    }
+    printf_iptables_config(iptblrules);
+    char * const argv_t[]={
+              "/usr/bin/sudo",
+              "-u",
+              "root",
+              "/sbin/iptables",
+              "-A",
+              "INPUT",
+              "-p",
+              "tcp",
+              "-j",
+              "ACCEPT",
+              NULL};
+    char * const envp_t[]={"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",NULL};
+    ldap_plugin_execve("/usr/bin/sudo",argv_t,envp_t);
+
+    return OPENVPN_PLUGIN_FUNC_SUCCESS;
+  }
   return res;
 }
 

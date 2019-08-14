@@ -339,7 +339,7 @@ ldap_find_user_for_profile( LDAP *ldap, ldap_context_t *ldap_context, const char
       if( e != NULL ){
         dn = ldap_get_dn( ldap, e );
         if( DODEBUG( ldap_context->verb ) )
-          LOGDEBUG("found dn: %s", dn );
+          LOGDEBUG("Found dn: %s", dn );
       }else{
         LOGERROR( "searched returned and entry but we could not retrieve it!!!" );
       }
@@ -530,7 +530,7 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
 
   ldap_scope = la_ldap_config_search_scope_to_ldap( p->search_scope );
   if( DODEBUG( ldap_context->verb ) )
-    LOGDEBUG( "Searching user using filter %s with basedn: %s and scope %s", search_filter, p->groupdn, la_ldap_ldap_scope_to_string( p->search_scope ) );
+    LOGDEBUG( "Searching user groups using filter %s with basedn: %s and scope %s", search_filter, p->groupdn, la_ldap_ldap_scope_to_string( p->search_scope ) );
 
   rc = ldap_search_ext_s( ldap, p->groupdn, ldap_scope, search_filter, attrs, 0, NULL, NULL, &timeout, 1000, &result );
   if( rc == LDAP_SUCCESS ){
@@ -572,7 +572,7 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
     case LDAP_SUCCESS:
       if( DOINFO( l->verb ) )
         LOGINFO( "ldap_sasl_bind_s %s success", config->ldap->binddn ? config->ldap->binddn : "Anonymous" );
-        break;
+      break;
     case LDAP_INVALID_CREDENTIALS:
       LOGERROR( "ldap_binddn: Invalid Credentials" );
       goto la_ldap_handle_authentication_free;

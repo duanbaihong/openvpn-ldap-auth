@@ -427,13 +427,21 @@ ldap_account_get_options_to_string( ldap_account_t *account ){
 int
 ldap_profile_handle_allowed_timeframe( ldap_profile_t *p ){
   time_t now = time(NULL);
+  char buffer [26];
+  struct tm *fnow;
+  struct timeval tv;
+  fnow=localtime(&now);
+  gettimeofday(&tv,NULL);
+  strftime(buffer,sizeof(buffer),"%Y/%m/%d %T ",fnow);
   if( !( p->start_date == 0 || p->start_date < now )
       ||
       !( p->end_date == 0 || p->end_date > now ) ){
-    LOGINFO("user time period: %d/%d is not allowed to connect at %d\n", p->start_date, p->end_date, now);
+    LOGINFO("User time period: %d/%d is not allowed to connect at %s us=%ld", 
+      p->start_date, p->end_date, buffer,
+      tv.tv_usec);
     return 1;
   }
-  LOGINFO("user time period: %d/%d is allowed to connect at %d\n", p->start_date, p->end_date, now);
+  LOGINFO("User time period: %d/%d is allowed to connect at %s. us=%ld", p->start_date, p->end_date, buffer,tv.tv_usec);
   return 0;
 }
 

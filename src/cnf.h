@@ -135,6 +135,6 @@ extern void config_free_iptable_rule(struct ip_perm *rules);
 extern void config_free_ldap(ldap_config_keyvalue_t *ldapconf);
 extern void config_init_iptable_rule(struct ip_perm *rules);
 extern void config_generate_ldap_keyvalue_t(char *key, char *val,u_int i );
-extern int config_init_ldap_iptable(const char *filename);
+extern int  config_init_ldap_iptable(const char *filename,int verb);
 
 #endif /* _CNF_H_ */

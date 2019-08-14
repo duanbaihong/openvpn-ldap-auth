@@ -25,6 +25,11 @@
 #include <string.h>
 #include <termios.h>
 #include <stdarg.h>
+#include "debug.h"
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <errno.h> 
 
 #define BACKSPACE 127
 
@@ -180,3 +185,49 @@ char *get_passwd( const char *prompt ){
 }
 
 
+/*
+ * Run execve() inside a fork().  Designed to replicate the semantics of system() but
+ * in a safer way that doesn't require the invocation of a shell or the risks
+ * assocated with formatting and parsing a command line.
+ */
+int
+ldap_plugin_execve(const char * filename,char * const argv[ ],char * const envp[ ])
+{
+    int ret = -1;
+    if (filename)
+    {
+// #if defined(ENABLE_FEATURE_EXECVE)
+      pid_t pid;
+
+      pid = fork();
+      if (pid == (pid_t)0) /* child side */
+      {
+        LOGINFO("ldap_plugin_execve run command at pid=%d: %s.",(int) pid,filename );
+        execve(filename, argv, envp);
+        if(errno!=0){
+          LOGERROR("Run command error:%s,error code=%d",strerror(errno),errno);
+        }
+        exit(127);
+      }
+      else if (pid < (pid_t)0) /* fork failed */
+      {
+        LOGERROR("ldap_plugin_execve: unable to fork");
+      }
+      else /* parent side */
+      {
+        if (waitpid(pid, &ret, 0) != pid)
+        {
+          ret = -1;
+        }
+      }
+// #else  /* if defined(ENABLE_FEATURE_EXECVE) */
+    // LOGWARNING("ldap_plugin_execve: execve function not available");
+// #endif /* if defined(ENABLE_FEATURE_EXECVE) */
+    }
+    else
+    {
+      LOGWARNING("ldap_plugin_execve: called with empty argv");
+    }
+
+    return ret;
+}

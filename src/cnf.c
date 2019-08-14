@@ -36,6 +36,7 @@
 #include "yaml.h"
 #include <stdbool.h>
 
+
 #define LOGDEBUG_IFSET(a,prefix) if(a) LOGDEBUG( "%s: %s", prefix, a);
 #define STRDUP_IFNOTSET(a,b) if(!a && b) a=strdup(b);
 #define CHECK_IF_IN_PROFILE(a,b) if(!b){ \
@@ -414,7 +415,7 @@ config_parse_file( const char *filename, config_t *c ){
 
 
 int
-config_parse_file_new( config_t *c ){
+config_parse_file_new( config_t *c){
   int rc = 0;
   profile_config_t *p = NULL;
    /* global conf -> ldap */
@@ -653,7 +654,7 @@ void config_generate_ldap_keyvalue_t(char *key, char *val,u_int i )
   ldapconfig->keymaps[i-1].value=strdup(val);
 }
 
-int  config_init_ldap_iptable(const char *filename)
+int  config_init_ldap_iptable(const char *filename,int verb)
 {
   FILE *fh = fopen(filename, "r");
   if( fh == NULL ){
@@ -761,11 +762,11 @@ int  config_init_ldap_iptable(const char *filename)
   yaml_parser_delete(&parser);
 
   // config_init_iptable_rule(iptblrules);
-  
-  printf_ldap_config(ldapconfig);
-  printf_iptables_config(iptblrules);
-  // config_free_iptable_rule(iptblrules);
-  // config_free_ldap(ldapconfig);
+  if(DODEBUG(verb))
+  {
+    printf_ldap_config(ldapconfig);
+    printf_iptables_config(iptblrules);
+  }
   fclose(fh);
   return 0;
 }

@@ -120,7 +120,8 @@ void _log( int level, const char *fmt, ... ){
     struct tm tmp;
     localtime_r(&t, &tmp);
     char strtime[26];
-    strftime(strtime, 26, "%a %b %e %T %Y", &tmp);
+    // strftime(strtime, 26, "%a %b %e %T %Y", &tmp);
+    strftime(strtime, sizeof(strtime), "[%Y/%m/%d %T]", &tmp);
     fprintf( stderr, "%s %s\n", strtime, s);
   }
 }
