@@ -36,6 +36,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #define PF_ALLOW_ALL "[CLIENTS ACCEPT]\n[SUBNETS ACCEPT]\n[END]\n"
 
@@ -322,9 +323,9 @@ ldap_find_user_for_profile( LDAP *ldap, ldap_context_t *ldap_context, const char
   if( real_username ) la_free( real_username );
 
   if( DODEBUG( ldap_context->verb ) )
-    LOGDEBUG( "Searching user using filter %s with basedn: %s and scope %s", search_filter, p->basedn, la_ldap_ldap_scope_to_string( p->search_scope ) );
+    LOGDEBUG( "Searching user using filter %s with usersdn: %s and scope %s", search_filter, p->usersdn, la_ldap_ldap_scope_to_string( p->search_scope ) );
   ldap_scope = la_ldap_config_search_scope_to_ldap( p->search_scope );
-  rc = ldap_search_ext_s( ldap, p->basedn, ldap_scope, search_filter, attrs, 0, NULL, NULL, &timeout, 1000, &result );
+  rc = ldap_search_ext_s( ldap, p->usersdn, ldap_scope, search_filter, attrs, 0, NULL, NULL, &timeout, 1000, &result );
   if( rc == LDAP_SUCCESS ){
     /* Check how many entries were found. Only one should be returned */
     int nbrow = ldap_count_entries( ldap, result );
@@ -332,7 +333,7 @@ ldap_find_user_for_profile( LDAP *ldap, ldap_context_t *ldap_context, const char
       LOGERROR( "ldap_search_ext_s returned %d results, only 1 is supported", ldap_count_entries( ldap, result ) );
     }else if( nbrow == 0 ){
       if( DODEBUG( ldap_context->verb ) )
-        LOGDEBUG( "ldap_search_ext_s: unknown user %s in basedn %s and scope %s", username, p->basedn, la_ldap_ldap_scope_to_string( p->search_scope ) );
+        LOGDEBUG( "ldap_search_ext_s: unknown user %s in usersdn %s and scope %s", username, p->usersdn, la_ldap_ldap_scope_to_string( p->search_scope ) );
     }else if( nbrow == 1 ){
       /* get the first entry (and only) */
       e =  ldap_first_entry( ldap, result );
@@ -529,13 +530,25 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
   }
 
   ldap_scope = la_ldap_config_search_scope_to_ldap( p->search_scope );
+  // ldap_scope = la_ldap_config_search_scope_to_ldap( p->search_scope );
   if( DODEBUG( ldap_context->verb ) )
-    LOGDEBUG( "Searching user groups using filter %s with basedn: %s and scope %s", search_filter, p->groupdn, la_ldap_ldap_scope_to_string( p->search_scope ) );
+    LOGDEBUG( "Searching user groups using filter %s with usersdn: %s and scope %s", search_filter, p->groupdn, la_ldap_ldap_scope_to_string( p->search_scope ) );
 
   rc = ldap_search_ext_s( ldap, p->groupdn, ldap_scope, search_filter, attrs, 0, NULL, NULL, &timeout, 1000, &result );
   if( rc == LDAP_SUCCESS ){
     /* Check how many entries were found. Only one should be returned */
     int nbrow = ldap_count_entries( ldap, result );
+    LDAPMessage *first_r;
+    char **values;
+    char const * field="cn";
+    first_r=ldap_first_entry(ldap,result);
+    values=ldap_get_values(ldap,first_r,field);
+    for ( int j = 0; values[j] != NULL; j++ )
+    {
+        printf( "\t%s: %s\n","cn", values[j] );
+    }
+    ldap_value_free( values );
+    // printf("%s\n",values);
     if( nbrow < 1 ){
       LOGWARNING( "ldap_search_ext_s: user %s do not match group filter %s", userdn, search_filter );
     }else{
@@ -616,6 +629,7 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
 
         /* check if user belong to right groups */
         if( client_context->profile->groupdn && client_context->profile->group_search_filter && client_context->profile->member_attribute ){
+            rc = ldap_binddn( ldap, config->ldap->binddn, config->ldap->bindpw );
             rc = ldap_group_membership( ldap, l, client_context  );
             if( rc == 0 ){
               res = OPENVPN_PLUGIN_FUNC_SUCCESS;

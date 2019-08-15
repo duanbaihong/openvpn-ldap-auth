@@ -45,6 +45,7 @@ free( line );\
 continue;\
 }
 
+
 //#define STRDUP_IFNOTSET_NOTNULL(a, b) if( b ) STRDUP_IFNOTSET(a,b)
 
 void check_and_free( void *d ){
@@ -148,7 +149,7 @@ profile_config_free ( profile_config_t *c ){
   if( !c )
     return;
 
-	check_and_free( c->basedn );
+	check_and_free( c->usersdn );
   check_and_free( c->search_filter );
   /* Group */
   check_and_free( c->groupdn );
@@ -187,7 +188,7 @@ profile_config_dup( const profile_config_t *c ){
   if( nc == NULL )
     return NULL;
 
-  if( c->basedn ) nc->basedn = strdup( c->basedn );
+  if( c->usersdn ) nc->usersdn = strdup( c->usersdn );
   if( c->search_filter ) nc->search_filter = strdup( c->search_filter );
   nc->search_scope = c->search_scope;
   /* Group */
@@ -356,9 +357,9 @@ config_parse_file( const char *filename, config_t *c ){
       }else if( !strcmp( arg, "timeout" ) ){
         if( !c->ldap->timeout ) c->ldap->timeout = atoi(val);
       /* profile conf */
-      }else if ( !strcmp( arg, "basedn" ) ){
+      }else if ( !strcmp( arg, "usersdn" ) ){
         CHECK_IF_IN_PROFILE( arg, in_profile );
-        STRDUP_IFNOTSET(p->basedn, val );
+        STRDUP_IFNOTSET(p->usersdn, val );
       }else if ( !strcmp( arg, "search_filter" ) ){
         CHECK_IF_IN_PROFILE( arg, in_profile );
         STRDUP_IFNOTSET(p->search_filter, val );
@@ -421,60 +422,65 @@ config_parse_file_new( config_t *c){
    /* global conf -> ldap */
   p = profile_config_new( );
   list_append( c->profiles, p );
-  for(int i=0;i<=ldapconfig->len;i++)
+  for(int i=0;i<ldapconfig->klen;i++)
   {
-    if( !strcasecmp(ldapconfig->keymaps[i].name, "HOST" ) ){
-      STRDUP_IFNOTSET(c->ldap->uri,ldapconfig->keymaps[i].value);
-    } else if ( !strcasecmp(ldapconfig->keymaps[i].name, "BIND_DN" ) ) {
-      STRDUP_IFNOTSET(c->ldap->binddn, ldapconfig->keymaps[i].value );
-    }else if ( !strcasecmp(ldapconfig->keymaps[i].name, "BIND_PASS" ) ) {
-      STRDUP_IFNOTSET(c->ldap->bindpw, ldapconfig->keymaps[i].value );
-    }else if ( !strcasecmp(ldapconfig->keymaps[i].name, "VERSION" ) ){
-      if(!c->ldap->version) c->ldap->version = atoi(ldapconfig->keymaps[i].value);
-    }else if ( !strcasecmp(ldapconfig->keymaps[i].name, "SSL" ) ){
-      STRDUP_IFNOTSET(c->ldap->ssl, ldapconfig->keymaps[i].value );
-    }else if ( !strcasecmp(ldapconfig->keymaps[i].name, "TLS_CACERTFILE" ) ){
-      STRDUP_IFNOTSET(c->ldap->tls_cacertfile, ldapconfig->keymaps[i].value );
-    }else if ( !strcasecmp(ldapconfig->keymaps[i].name, "TLS_CACERTDIR" ) ){
-      STRDUP_IFNOTSET(c->ldap->tls_cacertdir, ldapconfig->keymaps[i].value );
-    }else if ( !strcasecmp(ldapconfig->keymaps[i].name, "TLS_CERTFILE" ) ){
-      STRDUP_IFNOTSET(c->ldap->tls_certfile, ldapconfig->keymaps[i].value );
-    }else if ( !strcasecmp(ldapconfig->keymaps[i].name, "TLS_CERTKEY" ) ){
-      STRDUP_IFNOTSET(c->ldap->tls_certkey, ldapconfig->keymaps[i].value );
-    }else if ( !strcasecmp(ldapconfig->keymaps[i].name, "TLS_CIPHERSUITE" ) ){
-      STRDUP_IFNOTSET(c->ldap->tls_ciphersuite, ldapconfig->keymaps[i].value );
-    }else if ( !strcasecmp(ldapconfig->keymaps[i].name, "TLS_REQCERT" ) ){
-      STRDUP_IFNOTSET(c->ldap->tls_reqcert, ldapconfig->keymaps[i].value );
-    }else if( !strcasecmp(ldapconfig->keymaps[i].name, "TIMEOUT" ) ){
-      if( !c->ldap->timeout ) c->ldap->timeout = atoi(ldapconfig->keymaps[i].value);
+    char *tname=ldapconfig->keymaps[i].name;
+    // char *tvalue[256]=ldapconfig->keymaps[i].value;
+    if( !strcasecmp(tname, "HOST" ) ){
+      STRDUP_IFNOTSET(c->ldap->uri,ldapconfig->keymaps[i].value[0]);
+    } else if ( !strcasecmp(tname, "BIND_DN" ) ) {
+      STRDUP_IFNOTSET(c->ldap->binddn, ldapconfig->keymaps[i].value[0] );
+    }else if ( !strcasecmp(tname, "BIND_PASS" ) ) {
+      STRDUP_IFNOTSET(c->ldap->bindpw, ldapconfig->keymaps[i].value[0] );
+    }else if ( !strcasecmp(tname, "VERSION" ) ){
+      if(!c->ldap->version) c->ldap->version = atoi(ldapconfig->keymaps[i].value[0]);
+    }else if ( !strcasecmp(tname, "SSL" ) ){
+      STRDUP_IFNOTSET(c->ldap->ssl, ldapconfig->keymaps[i].value[0] );
+    }else if ( !strcasecmp(tname, "TLS_CACERTFILE" ) ){
+      STRDUP_IFNOTSET(c->ldap->tls_cacertfile, ldapconfig->keymaps[i].value[0] );
+    }else if ( !strcasecmp(tname, "TLS_CACERTDIR" ) ){
+      STRDUP_IFNOTSET(c->ldap->tls_cacertdir, ldapconfig->keymaps[i].value[0] );
+    }else if ( !strcasecmp(tname, "TLS_CERTFILE" ) ){
+      STRDUP_IFNOTSET(c->ldap->tls_certfile, ldapconfig->keymaps[i].value[0] );
+    }else if ( !strcasecmp(tname, "TLS_CERTKEY" ) ){
+      STRDUP_IFNOTSET(c->ldap->tls_certkey, ldapconfig->keymaps[i].value[0] );
+    }else if ( !strcasecmp(tname, "TLS_CIPHERSUITE" ) ){
+      STRDUP_IFNOTSET(c->ldap->tls_ciphersuite, ldapconfig->keymaps[i].value[0] );
+    }else if ( !strcasecmp(tname, "TLS_REQCERT" ) ){
+      STRDUP_IFNOTSET(c->ldap->tls_reqcert, ldapconfig->keymaps[i].value[0] );
+    }else if( !strcasecmp(tname, "TIMEOUT" ) ){
+      if( !c->ldap->timeout ) c->ldap->timeout = atoi(ldapconfig->keymaps[i].value[0]);
     /* profile conf */
-    }else if ( !strcasecmp(ldapconfig->keymaps[i].name, "USERS_DN" ) ){
-      // CHECK_IF_IN_PROFILE( ldapconfig->keymaps[i].name, in_profile );
-      STRDUP_IFNOTSET(p->basedn, ldapconfig->keymaps[i].value );
-    }else if ( !strcasecmp(ldapconfig->keymaps[i].name, "USERS_FILTER" ) ){
+    }else if ( !strcasecmp(tname, "BASE_DN" ) ){
+      // CHECK_IF_IN_PROFILE( tname, in_profile );
+      STRDUP_IFNOTSET(p->basedn, ldapconfig->keymaps[i].value[0] );
+    }else if ( !strcasecmp(tname, "USERS_DN" ) ){
+      // CHECK_IF_IN_PROFILE( tname, in_profile );
+      STRDUP_IFNOTSET(p->usersdn, ldapconfig->keymaps[i].value[0] );
+    }else if ( !strcasecmp(tname, "USERS_FILTER" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
-      STRDUP_IFNOTSET(p->search_filter, ldapconfig->keymaps[i].value );
-    }else if ( !strcasecmp(ldapconfig->keymaps[i].name, "USERS_SEARCH_SCOPE" ) ){
+      STRDUP_IFNOTSET(p->search_filter, ldapconfig->keymaps[i].value[0] );
+    }else if ( !strcasecmp(tname, "USERS_SEARCH_SCOPE" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
-      if( !strcasecmp( ldapconfig->keymaps[i].value, "LDAP_SCOPE_BASE" ) ){
+      if( !strcasecmp( ldapconfig->keymaps[i].value[0], "LDAP_SCOPE_BASE" ) ){
         p->search_scope = LA_SCOPE_BASE;
-      }else if( !strcasecmp( ldapconfig->keymaps[i].value, "LDAP_SCOPE_ONELEVEL" ) ){
+      }else if( !strcasecmp( ldapconfig->keymaps[i].value[0], "LDAP_SCOPE_ONELEVEL" ) ){
         p->search_scope = LA_SCOPE_ONELEVEL;
-      }else if( !strcasecmp( ldapconfig->keymaps[i].value, "LDAP_SCOPE_SUBTREE" ) ){
+      }else if( !strcasecmp( ldapconfig->keymaps[i].value[0], "LDAP_SCOPE_SUBTREE" ) ){
         p->search_scope = LA_SCOPE_SUBTREE;
       }
     /* Group */
-    }else if( !strcasecmp( ldapconfig->keymaps[i].name, "GROUP_DN" ) ){
+    }else if( !strcasecmp( tname, "GROUP_DN" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
-      STRDUP_IFNOTSET(p->groupdn, ldapconfig->keymaps[i].value );
-    }else if( !strcasecmp( ldapconfig->keymaps[i].name, "GROUP_FILTER" ) ){
+      STRDUP_IFNOTSET(p->groupdn, ldapconfig->keymaps[i].value[0] );
+    }else if( !strcasecmp( tname, "GROUP_FILTER" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
-      STRDUP_IFNOTSET(p->group_search_filter, ldapconfig->keymaps[i].value );
-    }else if( !strcasecmp(ldapconfig->keymaps[i].name, "GROUP_MEMBER_ATTR" ) ){
+      STRDUP_IFNOTSET(p->group_search_filter, ldapconfig->keymaps[i].value[0] );
+    }else if( !strcasecmp(tname, "GROUP_MEMBER_ATTR" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
-      STRDUP_IFNOTSET(p->member_attribute, ldapconfig->keymaps[i].value );
+      STRDUP_IFNOTSET(p->member_attribute, ldapconfig->keymaps[i].value[0] );
     }else{
-      LOGWARNING("Unrecognized option *%s=%s*", ldapconfig->keymaps[i].name, ldapconfig->keymaps[i].value);
+      LOGWARNING("Unrecognized option *%s=%s*", tname, ldapconfig->keymaps[i].value[0]);
     }
   }
      
@@ -509,6 +515,7 @@ config_dump( config_t *c){
     p = item->data;
     LOGDEBUG( "*Custom Profile:*" );
     LOGDEBUG_IFSET(p->basedn, "  BaseDN");
+    LOGDEBUG_IFSET(p->usersdn, "  UsersDN");
     LOGDEBUG( "  Search Scope: %s", config_search_scope_to_string( p->search_scope ) );
     LOGDEBUG( "  Search filter: %s", p->search_filter );
     LOGDEBUG_IFSET(p->groupdn,"  GroupDN");
@@ -567,94 +574,69 @@ config_is_redirect_gw_enabled_for_profile( profile_config_t *p ){
 
 
 // 
-void printf_iptables_config(ip_perm_rules_t *iprules)
+void config_iptables_printf(ldap_config_keyvalue_t *rules)
 {
   int i=0;
-  while (i <iprules->klen)
-  {
-    int m=0;
-    LOGDEBUG("%d,%s:",i,iprules->items[i].name);
-    while(m<iprules->items[i].vlen){
-      LOGDEBUG("\t%d-%d-%s",m,iprules->items[i].vlen,iprules->items[i].value[m]);
-      m++;
-    }
-    i++;
-  }
-}
-// 
-void printf_ldap_config(ldap_config_keyvalue_t *lc)
-{
-  LOGDEBUG("test:%d",lc->len);
-  for(int i=0;i<=lc->len;i++)
-  {
-    if(lc->keymaps[i].name!=NULL){
-      if(!strcasecmp(lc->keymaps[i].name,"BIND_PASS"))
-      {
-        LOGDEBUG("%d-%s=%s",i,lc->keymaps[i].name,"******");
-      }else{
-        LOGDEBUG("%d-%s=%s",i,lc->keymaps[i].name,lc->keymaps[i].value);
-      }
-    }
-  }
-}
-// 
-void config_free_iptable_rule(struct ip_perm *rules)
-{
-  if(rules)
-  {
-    int i=0;
-    while (i <rules->klen)
-    {
-      int m=0;
-      free(rules->items[i].name);
-      while(m<rules->items[i].vlen){
-        free(rules->items[i].value[m]);
-        m++;
-      }
-      i++;
-    }
-    free(rules);
-    LOGDEBUG("free malloc for iptables config");
-  }
-}
-void config_free_ldap(ldap_config_keyvalue_t *ldapconf)
-{
-  if(ldapconf)
-  {
-    for(u_int i=0;i<=ldapconf->len;i++)
-    {
-      free(ldapconf->keymaps[i].name);
-      free(ldapconf->keymaps[i].value);
-    }
-    free(ldapconf);
-    LOGDEBUG("free malloc for ldap config");
-  }
-}
-
-void config_init_iptable_rule(struct ip_perm *rules)
-{
-  int i=0;
-  // printf("%d\n", rules->klen);
   while (i <rules->klen)
   {
     int m=0;
-    // printf("%d,%s:\n",i,rules->items[i].name);
-    while(m<rules->items[i].vlen){
-      // printf("\t%d-%d-%s\n",m,rules->items[i].vlen,rules->items[i].value[m]);
+    LOGNOTICE("%d,%s:",i,rules->keymaps[i].name);
+    while(m<rules->keymaps[i].vlen){
+      LOGNOTICE("\t%d-%d-%s",m,rules->keymaps[i].vlen,rules->keymaps[i].value[m]);
+      m++;
+    }
+    i++;
+  }
+}
+// 
+void config_ldap_printf(ldap_config_keyvalue_t *rules)
+{
+  for(int i=0;i<rules->klen;i++)
+  {
+    // char *buf;
+    if(rules->keymaps[i].name!=NULL){
+      // for(u_int s=0;s<rules->keymaps[i].vlen;s++)
+      // {
+      // buf = (char *)malloc(sizeof(char) * (sizeof(rules->keymaps[i].value) + 1));
+      // strncpy(buf,rules->keymaps[i].value,sizeof(rules->keymaps[i].value));
+      // }
+      LOGNOTICE("%d-%s=%s",i,rules->keymaps[i].name,*rules->keymaps[i].value);
+    }
+  }
+}
+void config_ldap_plugin_free(ldap_config_keyvalue_t *rules)
+{
+  int i=0;
+  while (i <rules->klen)
+  {
+    int m=0;
+    check_and_free(rules->keymaps[i].name);
+    while(m<rules->keymaps[i].vlen){
+      check_and_free(rules->keymaps[i].value[m]);
+      m++;
+    }
+    i++;
+  }
+  check_and_free(rules);
+  LOGNOTICE("free ldap plugin malloc.");
+}
+
+void config_init_iptable_rules(ldap_config_keyvalue_t *rules)
+{
+  int i=0;
+  while (i <rules->klen)
+  {
+    int m=0;
+    printf("%d,%s:\n",i,rules->keymaps[i].name);
+    while(m<rules->keymaps[i].vlen){
+      printf("\t%d-%d-%s\n",m,rules->keymaps[i].vlen,rules->keymaps[i].value[m]);
       m++;
     }
     i++;
   }
 }
 
-void config_generate_ldap_keyvalue_t(char *key, char *val,u_int i )
-{
-  ldapconfig->len=i-1;
-  ldapconfig->keymaps[i-1].name=strdup(key);
-  ldapconfig->keymaps[i-1].value=strdup(val);
-}
-
-int  config_init_ldap_iptable(const char *filename,int verb)
+int config_init_ldap_config_set(const char *filename,int verb)
 {
   FILE *fh = fopen(filename, "r");
   if( fh == NULL ){
@@ -674,17 +656,19 @@ int  config_init_ldap_iptable(const char *filename,int verb)
 
   /* BEGIN new code */
   bool haskey = false,hasvalue = false,
-       hassequ = false,hasldapconf = false,
-       hasiptablsconf = false;
+       hassequ = false;
   u_int keylayer=0,seqindex=0,keyindex=0;
-  iptblrules = malloc(sizeof(struct ip_perm));
+  
+  iptblrules = malloc(sizeof(ldap_config_keyvalue_t));
   ldapconfig = malloc(sizeof(ldap_config_keyvalue_t));
-  memset(iptblrules,0,sizeof(struct ip_perm));
+
+  memset(iptblrules,0,sizeof(ldap_config_keyvalue_t));
   memset(ldapconfig,0,sizeof(ldap_config_keyvalue_t));
 
-  char *curkey;
-  char *val;
+  ldap_config_keyvalue_t *tmpconfig;
+  tmpconfig=ldapconfig;
   do {
+    char *val;
     yaml_parser_scan(&parser, &token);
     switch(token.type)
     {
@@ -699,57 +683,45 @@ int  config_init_ldap_iptable(const char *filename,int verb)
       keylayer--; 
       hassequ = false;
       haskey=false;
+      seqindex=0;
       hasvalue=false;
       break;
     case YAML_SCALAR_TOKEN: 
       val=(char *)token.data.scalar.value;
       if( keylayer==1 && strcasecmp(val,"ldap")==0){
-        hasldapconf=true;
-        hasiptablsconf=false;
         keyindex=0;
+        tmpconfig=ldapconfig;
         break;
       }
       if( keylayer==1 && strcasecmp(val,"iptablerules")==0){
-        hasldapconf=false;
-        hasiptablsconf=true;
         keyindex=0;
+        tmpconfig=iptblrules;
         break;
       }
       // ldap config 
-      if(hasldapconf){
-        if(haskey){
-          keyindex++;
-          curkey=strdup(val);
+      if(haskey){
+        if(keyindex>=IP_RULE_KEYS_BUF){
+          LOGERROR("Error: IP rule keyname exceeding maximum limit %d [%s]。\n",
+                IP_RULE_KEYS_BUF,
+                val);
+          break;
         }
-        if(hasvalue && !hassequ){
-          config_generate_ldap_keyvalue_t(curkey,val,keyindex);
-          free(curkey);
-        }
-        if(hassequ){
-          // hasldapconf=false;
-          LOGERROR("ldap config [%s] must key value,not allow list value;\n",curkey);
-        }
-        // iptables config
-      }else if(hasiptablsconf){
-        if(haskey){
-          keyindex++;
-          if(keyindex<=IP_RULE_KEYS_BUF){
-            iptblrules->klen=keyindex;
-            iptblrules->items[keyindex-1].name=strdup(val);
+        tmpconfig->keymaps[keyindex].name=strdup(val);
+        tmpconfig->klen=++keyindex;
+      }else if(hasvalue){
+        if(seqindex<IP_RULE_ITEM_BUF && keyindex<=IP_RULE_KEYS_BUF){
+
+          tmpconfig->keymaps[keyindex-1].value[seqindex]=strdup(val);
+          if(hassequ)
+          {
+            tmpconfig->keymaps[keyindex-1].vlen=++seqindex;
           }else{
-            LOGERROR("Error: IP rule keyname exceeding maximum limit %d [%s]。\n",
-            IP_RULE_KEYS_BUF,
-            val);
+            tmpconfig->keymaps[keyindex-1].vlen=1;
           }
-        }else if(hasvalue){
-          if(seqindex<IP_RULE_ITEM_BUF && keyindex<=IP_RULE_KEYS_BUF){
-            iptblrules->items[keyindex-1].value[hassequ?seqindex++:seqindex]=strdup(val);
-            iptblrules->items[keyindex-1].vlen=seqindex>0?seqindex:1;
-          }else{
-            LOGERROR("IP rule items defined exceed the maximum limit %d [%s]。\n",
-                    IP_RULE_ITEM_BUF,
-                    val);
-          }
+        }else{
+          LOGERROR("Error: IP rule items defined exceed the maximum limit %d [%s]。\n",
+                  IP_RULE_ITEM_BUF,
+                  val);
         }
       }
       break;
@@ -761,11 +733,10 @@ int  config_init_ldap_iptable(const char *filename,int verb)
   } while(token.type != YAML_STREAM_END_TOKEN);
   yaml_parser_delete(&parser);
 
-  // config_init_iptable_rule(iptblrules);
   if(DODEBUG(verb))
   {
-    printf_ldap_config(ldapconfig);
-    printf_iptables_config(iptblrules);
+    config_ldap_printf(ldapconfig);
+    config_iptables_printf(iptblrules);
   }
   fclose(fh);
   return 0;

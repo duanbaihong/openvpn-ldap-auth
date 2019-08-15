@@ -181,7 +181,7 @@ main( int argc, char **argv){
       filter = str_replace(p->search_filter, "%u", username );
     }
     printdebug("search Filter %s\nFinal filter: %s\n",p->search_filter, filter);
-    rc = ldap_search_ext_s( ldap, p->basedn, LDAP_SCOPE_ONELEVEL, filter, attrs, 0, NULL, NULL, &timeout, 1000, &result );
+    rc = ldap_search_ext_s( ldap, p->usersdn, LDAP_SCOPE_ONELEVEL, filter, attrs, 0, NULL, NULL, &timeout, 1000, &result );
     if( rc == LDAP_SUCCESS ){
       fprintf(stdout, "Search returned success\n");
       e = ldap_first_entry( ldap, result );

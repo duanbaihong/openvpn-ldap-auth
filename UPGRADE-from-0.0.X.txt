@@ -113,7 +113,7 @@ As many profile as you like can be defined.
 The first one that can match a user will be used.
 
 Here are the parameters you can use:
-basedn
+usersdn
 search_filter
 search_scope
 groupdn

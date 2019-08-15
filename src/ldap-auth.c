@@ -301,7 +301,11 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   // if( config_parse_file( configfile, context->config ) ){
   //   goto error;
   // }
-  if( config_init_ldap_iptable( configfile, context->verb ) ){
+  const char *verb_string = get_env ("verb", envp);
+  if (verb_string)
+    context->verb = atoi (verb_string);
+
+  if( config_init_ldap_config_set( configfile, context->verb ) ){
     goto error;
   }
   config_parse_file_new( context->config );
@@ -327,9 +331,7 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   /*
    * Get verbosity level from environment
    */
-  const char *verb_string = get_env ("verb", envp);
-  if (verb_string)
-    context->verb = atoi (verb_string);
+
 
   if( DODEBUG( context->verb ) )
       config_dump( context->config );
@@ -513,7 +515,7 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
     {
       LOGDEBUG("%s",argv[i]);
     }
-    printf_iptables_config(iptblrules);
+    config_iptables_printf(iptblrules);
     char * const argv_t[]={
               "/usr/bin/sudo",
               "-u",
@@ -557,8 +559,8 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
   }
   ldap_context_free( context );
   // 
-  config_free_iptable_rule(iptblrules);
-  config_free_ldap(ldapconfig);
+  config_ldap_plugin_free(iptblrules);
+  config_ldap_plugin_free(ldapconfig);
   //pthread_exit(NULL); 
 }
 
@@ -586,8 +588,8 @@ openvpn_plugin_abort_v1 (openvpn_plugin_handle_t handle)
     }
     ldap_context_free( context );
     
-    config_free_iptable_rule(iptblrules);
-    config_free_ldap(ldapconfig);
+    config_ldap_plugin_free(iptblrules);
+    config_ldap_plugin_free(ldapconfig);
   }
 }
 

@@ -34,7 +34,7 @@ Grab the example configuration file: tests/config.conf
 
 uri=ldap://192.168.9.135
 search_filter=(uid=%u)
-basedn=ou=users,dc=example,dc=com
+usersdn=ou=users,dc=example,dc=com
 binddn=cn=admin,dc=example,dc=com
 bindpw=secret
 version=3
@@ -47,7 +47,7 @@ member_attribute=member
 
 Default values are:
 uri=ldap://localhost
-basedn=ou=users,dc=example,dc=com
+usersdn=ou=users,dc=example,dc=com
 search_filter=(uid=%u)
 ssl=off
 
