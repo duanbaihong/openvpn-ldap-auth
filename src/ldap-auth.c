@@ -69,45 +69,9 @@
 #define DFT_REDIRECT_GATEWAY_FLAGS "def1 bypass-dhcp"
 #define OCONFIG "/etc/openvpn/openvpn-ldap.yaml"
 // #define OCONFIG "/etc/openvpn/openvpn-ldap.conf"
+pthread_t action_thread = 0;
 
-
-pthread_mutex_t    action_mutex;
-pthread_cond_t     action_cond;
-pthread_attr_t     action_thread_attr;
-pthread_t          action_thread = 0;
-
-/* forward declaration of main loop */
-static void *action_thread_main_loop (void *c);
-
-void
-action_push( list_t *list, action_t *action)
-{
-  pthread_mutex_lock( &action_mutex );
-  if( action->type == LDAP_AUTH_ACTION_QUIT )
-    list_prepend( list, ( void * )action );
-  else
-    list_append( list, ( void * )action );
-  if( list_length( list ) == 1 ){
-    pthread_cond_signal( &action_cond );
-    LOGINFO( "Sent signal to authenticating loop" );
-  }
-  pthread_mutex_unlock( &action_mutex );
-}
-
-action_t *
-action_pop (list_t *l){
-  action_t *a = NULL;
-  pthread_mutex_lock (&action_mutex);
-  if (list_length (l) == 0){
-    pthread_cond_wait (&action_cond, &action_mutex);
-  }
-  /* get the action item */
-  a = list_remove_item_at (l, 0);
-  pthread_mutex_unlock (&action_mutex);
-  return a;
-}
-
-
+static void * action_thread_main_loop(void *c);
 /*
  * Name/Value pairs for conversation function.
  * Special Values:
@@ -115,42 +79,6 @@ action_pop (list_t *l){
  *  "USERNAME" -- substitute client-supplied username
  *  "PASSWORD" -- substitute client-specified password
  */
-
-#define N_NAME_VALUE 16
-
-struct name_value {
-  const char *name;
-  const char *value;
-};
-
-struct name_value_list {
-  int len;
-  struct name_value data[N_NAME_VALUE];
-};
-
-/*
- * Given an environmental variable name, search
- * the envp array for its value, returning it
- * if found or NULL otherwise.
- */
-static const char *
-get_env (const char *name, const char *envp[])
-{
-  if (envp){
-    int i;
-    const int namelen = strlen (name);
-    for (i = 0; envp[i]; ++i){
-      if (!strncmp (envp[i], name, namelen))
-	    {
-	      const char *cp = envp[i] + namelen;
-	      if (*cp == '=')
-		      return cp + 1;
-	    }
-	  }
-  }
-  return NULL;
-}
-
 #if 0
 /*
  * Given an environmental variable name, dumps
@@ -170,23 +98,8 @@ dump_env (const char *envp[])
 }
 #endif
 
-/*
- * Return the length of a string array
- */
-static int
-string_array_len (const char *array[])
-{
-  int i = 0;
-  if (array){
-    while (array[i])
-	    ++i;
-  }
-  return i;
-}
-
 #if defined(HAVE_GETRLIMIT) && defined(RLIMIT_CORE)
-static void
-unlimit_core_size(void)
+    static void unlimit_core_size(void)
 {
   struct rlimit lim;
 
@@ -511,28 +424,28 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
 #endif
   else if(type == OPENVPN_PLUGIN_LEARN_ADDRESS){
     client_context_t *cc = per_client_context;
-    LOGDEBUG("OPENVPN_PLUGIN_LEARN_ADDRESS");
-    LOGWARNING("groupname:%s ,description name: %s",cc->group_name,cc->group_description);
-    for(int i=0;argv[i]!=NULL;i++)
-    {
-      LOGDEBUG("%s",argv[i]);
+    char *argvjoin;
+    argvjoin = char_array_join((char *)*argv," ");
+    LOGDEBUG("PLUGIN_LEARN_ADDRESS:%d", argvjoin);
+    free(argvjoin);
+    if(string_array_len(argv)>1){
+      LOGWARNING("groupname:%s ,description name: %s",cc->group_name,cc->group_description);
+      config_iptables_printf(iptblrules);
+      char * const argv_t[]={
+                "/usr/bin/sudo",
+                "-u",
+                "root",
+                "/sbin/iptables",
+                "-A",
+                "INPUT",
+                "-p",
+                "tcp",
+                "-j",
+                "ACCEPT",
+                NULL};
+      char * const envp_t[]={"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",NULL};
+      ldap_plugin_execve("/usr/bin/sudo",argv_t,envp_t);
     }
-    config_iptables_printf(iptblrules);
-    char * const argv_t[]={
-              "/usr/bin/sudo",
-              "-u",
-              "root",
-              "/sbin/iptables",
-              "-A",
-              "INPUT",
-              "-p",
-              "tcp",
-              "-j",
-              "ACCEPT",
-              NULL};
-    char * const envp_t[]={"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",NULL};
-    ldap_plugin_execve("/usr/bin/sudo",argv_t,envp_t);
-
     return OPENVPN_PLUGIN_FUNC_SUCCESS;
   }
   return res;

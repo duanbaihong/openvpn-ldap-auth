@@ -61,5 +61,8 @@ extern char *get_passwd( const char *prompt );
 extern int ldap_plugin_execve(const char * filename,char * const argv[ ],char * const envp[ ]);
 
 extern int ldap_array_len(char *arr[]);
+
+extern int string_array_len(const char *array[]);
+extern const char *get_env(const char *name, const char *envp[]);
 #endif /* _UTILS_H_ */
 

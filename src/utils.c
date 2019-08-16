@@ -52,12 +52,54 @@ la_memset( void *s, int c, size_t n ){
 int ldap_array_len(char *arr[])
 {
   int i=0;
-  while(arr[i]!=NULL)
-  {
-    i++;
+  if(arr) {
+    while(arr[i]!=NULL)
+    {
+      i++;
+    }
   }
   return i;
 }
+/*
+ * Return the length of a string array
+ */
+int
+string_array_len(const char *array[])
+{
+  int i = 0;
+  if (array)
+  {
+    while (array[i])
+      ++i;
+  }
+  return i;
+}
+
+/*
+ * Given an environmental variable name, search
+ * the envp array for its value, returning it
+ * if found or NULL otherwise.
+ */
+const char *
+get_env(const char *name, const char *envp[])
+{
+  if (envp)
+  {
+    int i;
+    const int namelen = strlen(name);
+    for (i = 0; envp[i]; ++i)
+    {
+      if (!strncmp(envp[i], name, namelen))
+      {
+        const char *cp = envp[i] + namelen;
+        if (*cp == '=')
+          return cp + 1;
+      }
+    }
+  }
+  return NULL;
+}
+
 /**
  * same as strdup but given a va_list
  */

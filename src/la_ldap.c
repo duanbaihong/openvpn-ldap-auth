@@ -565,11 +565,11 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
           for(int k=0;vals[k]!=NULL;k++){
             int g_field=ldap_array_len(cc->profile->group_map_field);
             if(g_field>0){
-              if(strcasecmp(attr,cc->profile->group_map_field[0]))
+              if(!strcasecmp(attr,cc->profile->group_map_field[0]))
               {
                 cc->group_name=strdup(vals[k]->bv_val);
               }
-              if(g_field>1 && strcasecmp(attr,cc->profile->group_map_field[1]))
+              if(g_field>1 && !strcasecmp(attr,"description"))
               {
                 cc->group_description = strdup(vals[k]->bv_val);
               }
@@ -580,7 +580,7 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
         }
         ldap_memfree( attr );
       }
-      if(ber != NULL) ldap_ber_free(ber, 0);
+      if(ber != NULL) ber_free(ber, 0);
       // ldap_msgfree(entry);
     }
   }

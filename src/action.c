@@ -22,6 +22,7 @@
 #include "action.h"
 #include "utils.h"
 
+
 action_t *
 action_new( )
 {
@@ -42,4 +43,37 @@ action_free( void *a)
       action->context_free_func( action->context );
     la_free( action );
   }
+}
+
+/* forward declaration of main loop */
+
+
+void action_push(list_t *list, action_t *action)
+{
+  pthread_mutex_lock(&action_mutex);
+  if (action->type == LDAP_AUTH_ACTION_QUIT)
+    list_prepend(list, (void *)action);
+  else
+    list_append(list, (void *)action);
+  if (list_length(list) == 1)
+  {
+    pthread_cond_signal(&action_cond);
+    LOGINFO("Sent signal to authenticating loop");
+  }
+  pthread_mutex_unlock(&action_mutex);
+}
+
+action_t *
+action_pop(list_t *l)
+{
+  action_t *a = NULL;
+  pthread_mutex_lock(&action_mutex);
+  if (list_length(l) == 0)
+  {
+    pthread_cond_wait(&action_cond, &action_mutex);
+  }
+  /* get the action item */
+  a = list_remove_item_at(l, 0);
+  pthread_mutex_unlock(&action_mutex);
+  return a;
 }

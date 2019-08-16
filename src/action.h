@@ -18,6 +18,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#include "list.h"
+#include "debug.h"
+#include <pthread.h>
 
 #ifndef __ACTION_H__
 #define __ACTION_H__
@@ -35,7 +38,13 @@ typedef struct action{
   void (*context_free_func)( void *data );
 } action_t;
 
+pthread_mutex_t action_mutex;
+pthread_cond_t action_cond;
+pthread_attr_t action_thread_attr;
+
 extern action_t *action_new( void );
 extern void action_free( void *action );
+extern void action_push(list_t *list, action_t *action);
+extern action_t *action_pop(list_t *l);
 
 #endif /* __ACTION_H__ */
