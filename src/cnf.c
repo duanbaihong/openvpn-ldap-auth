@@ -289,6 +289,29 @@ skip_whitespaces( char *l ){
   return l;
 }
 
+char * 
+char_array_join(char *arr[],char *flag)
+{
+  int i=0;
+  char *m;
+  int len=0;
+  while(arr[i]!= NULL)
+  {
+    len+=strlen(arr[i++])+strlen(flag);
+  }
+  len++;
+  i=0;
+  m=malloc(len);
+  memset(m,0,len);
+  if(!flag) flag=",";
+  while(arr[i]!=NULL)
+  {
+    if(i>0) strcat(m,flag);
+    strcat(m,arr[i++]);
+  }
+  return m;
+}
+
 int
 config_parse_file( const char *filename, config_t *c ){
 	int fd;
@@ -479,6 +502,11 @@ config_parse_file_new( config_t *c){
     }else if( !strcasecmp(tname, "GROUP_MEMBER_ATTR" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
       STRDUP_IFNOTSET(p->member_attribute, ldapconfig->keymaps[i].value[0] );
+    }else if( !strcasecmp(tname, "GROUP_MAP_FIELD" ) ){
+      // CHECK_IF_IN_PROFILE( arg, in_profile );
+      for(int n=0;n<ldapconfig->keymaps[i].vlen;n++){
+        p->group_map_field[n]=strdup(ldapconfig->keymaps[i].value[n]);
+      }
     }else{
       LOGWARNING("Unrecognized option *%s=%s*", tname, ldapconfig->keymaps[i].value[0]);
     }
@@ -521,6 +549,13 @@ config_dump( config_t *c){
     LOGDEBUG_IFSET(p->groupdn,"  GroupDN");
     LOGDEBUG_IFSET(p->group_search_filter, "  Group Search Filter");
     LOGDEBUG_IFSET(p->member_attribute,"  Member Attribute");
+    if(p->group_map_field[0])
+    {
+      char *f;
+      f=char_array_join(p->group_map_field,",");
+      LOGDEBUG("  Group Map Fields: %s",f);
+      check_and_free(f);
+    }
     LOGDEBUG( "  Enable PF: %s", ternary_to_string(p->enable_pf));
     LOGDEBUG( "  Default PF rules: %s", p->default_pf_rules ? p->default_pf_rules : "Undefined" );
 #ifdef ENABLE_LDAPUSERCONF
@@ -595,12 +630,19 @@ void config_ldap_printf(ldap_config_keyvalue_t *rules)
   {
     // char *buf;
     if(rules->keymaps[i].name!=NULL){
-      // for(u_int s=0;s<rules->keymaps[i].vlen;s++)
-      // {
-      // buf = (char *)malloc(sizeof(char) * (sizeof(rules->keymaps[i].value) + 1));
-      // strncpy(buf,rules->keymaps[i].value,sizeof(rules->keymaps[i].value));
-      // }
-      LOGNOTICE("%d-%s=%s",i,rules->keymaps[i].name,*rules->keymaps[i].value);
+      if(!strcasecmp(rules->keymaps[i].name,"BIND_PASS"))
+      {
+        LOGNOTICE("%d-%s=%s",i,rules->keymaps[i].name,"********");
+        continue;
+      }
+      if(rules->keymaps[i].vlen>1){
+        char *t;
+        t=char_array_join(rules->keymaps[i].value,",");
+        LOGNOTICE("%d,%s: %s",i,rules->keymaps[i].name,t);
+        check_and_free(t);
+      }else{
+        LOGNOTICE("%d-%s=%s",i,rules->keymaps[i].name,rules->keymaps[i].value[0]);
+      }
     }
   }
 }

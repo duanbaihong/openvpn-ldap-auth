@@ -48,6 +48,16 @@ la_memset( void *s, int c, size_t n ){
   return memset( s, c, n );
 }
 
+
+int ldap_array_len(char *arr[])
+{
+  int i=0;
+  while(arr[i]!=NULL)
+  {
+    i++;
+  }
+  return i;
+}
 /**
  * same as strdup but given a va_list
  */

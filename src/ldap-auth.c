@@ -510,7 +510,9 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
   }
 #endif
   else if(type == OPENVPN_PLUGIN_LEARN_ADDRESS){
+    client_context_t *cc = per_client_context;
     LOGDEBUG("OPENVPN_PLUGIN_LEARN_ADDRESS");
+    LOGWARNING("groupname:%s ,description name: %s",cc->group_name,cc->group_description);
     for(int i=0;argv[i]!=NULL;i++)
     {
       LOGDEBUG("%s",argv[i]);

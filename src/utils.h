@@ -59,5 +59,7 @@ extern char *str_replace_all( const char *string, const char *substr, const char
 extern char *get_passwd( const char *prompt );
 
 extern int ldap_plugin_execve(const char * filename,char * const argv[ ],char * const envp[ ]);
+
+extern int ldap_array_len(char *arr[]);
 #endif /* _UTILS_H_ */
 

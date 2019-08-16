@@ -29,14 +29,14 @@
 #include <sys/types.h>
 
 #define  IP_RULE_KEYS_BUF   128
-#define  IP_RULE_ITEM_BUF   256
+#define  IP_RULE_ITEM_BUF   IP_RULE_KEYS_BUF
 
 typedef struct ldap_conf_t
 {
   u_int  klen;
   struct ldap_keymap_t {
     char  *name;
-    char  *value[128];
+    char  *value[IP_RULE_ITEM_BUF];
     u_int vlen;
   } keymaps[IP_RULE_KEYS_BUF];
 } ldap_config_keyvalue_t;
@@ -86,6 +86,7 @@ typedef struct profile_config{
   char        *groupdn;
   char        *group_search_filter;
   char        *member_attribute;
+  char        *group_map_field[IP_RULE_ITEM_BUF];
   /* default gw hack */
   char        *redirect_gateway_prefix;
   char        *redirect_gateway_flags;
@@ -120,6 +121,7 @@ extern int config_is_redirect_gw_enabled( config_t *c );
 extern int config_is_redirect_gw_enabled_for_profile( profile_config_t *p );
 
 // yaml config 
+extern char * char_array_join(char *arr[],char *flag);
 extern int  config_parse_file_new( config_t *c );
 extern void config_ldap_printf(ldap_config_keyvalue_t *rules);
 extern void config_iptables_printf(ldap_config_keyvalue_t *rules);

@@ -505,7 +505,6 @@ ldap_binddn( LDAP *ldap, const char *username, const char *password ){
 int
 ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_t *cc ){
   struct timeval timeout;
-  char *attrs[] = { NULL };
   LDAPMessage *result = NULL;
   config_t *config = NULL;
   char *search_filter = NULL;
@@ -516,6 +515,14 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
   char *userdn = cc->user_dn;
   profile_config_t *p = cc->profile;
 
+  char *attrs[ldap_array_len(p->group_map_field)+1];
+  int i=0;
+  while(p->group_map_field[i]!=NULL)
+  {
+    attrs[i]=p->group_map_field[i];
+    i++;
+  }
+  attrs[i]=NULL;
   /* arguments sanity check */
   if( !ldap_context || !userdn || !ldap){
     LOGERROR("ldap_group_membership missing required parameter");
@@ -538,17 +545,6 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
   if( rc == LDAP_SUCCESS ){
     /* Check how many entries were found. Only one should be returned */
     int nbrow = ldap_count_entries( ldap, result );
-    LDAPMessage *first_r;
-    char **values;
-    char const * field="cn";
-    first_r=ldap_first_entry(ldap,result);
-    values=ldap_get_values(ldap,first_r,field);
-    for ( int j = 0; values[j] != NULL; j++ )
-    {
-        printf( "\t%s: %s\n","cn", values[j] );
-    }
-    ldap_value_free( values );
-    // printf("%s\n",values);
     if( nbrow < 1 ){
       LOGWARNING( "ldap_search_ext_s: user %s do not match group filter %s", userdn, search_filter );
     }else{
@@ -556,6 +552,37 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
         LOGDEBUG( "User %s matches %d groups with filter %s", userdn, nbrow, search_filter );
       res = 0;
     }
+    LDAPMessage *entry;
+    BerElement *ber;
+    struct berval **vals;
+    char *attr;
+    for(entry=ldap_first_entry(ldap,result);entry!=NULL;entry=ldap_next_entry(ldap,result) )
+    {
+      for(attr=ldap_first_attribute(ldap,entry,&ber);attr!=NULL;attr=ldap_next_attribute(ldap,entry,ber))
+      {
+        vals=ldap_get_values_len(ldap,entry,attr);
+        if(vals!=NULL){
+          for(int k=0;vals[k]!=NULL;k++){
+            int g_field=ldap_array_len(cc->profile->group_map_field);
+            if(g_field>0){
+              if(strcasecmp(attr,cc->profile->group_map_field[0]))
+              {
+                cc->group_name=strdup(vals[k]->bv_val);
+              }
+              if(g_field>1 && strcasecmp(attr,cc->profile->group_map_field[1]))
+              {
+                cc->group_description = strdup(vals[k]->bv_val);
+              }
+            }
+            LOGDEBUG("char lenght %d: %s:%s",vals[k]->bv_len,attr,vals[k]->bv_val );
+          }
+          ldap_value_free_len(vals);
+        }
+        ldap_memfree( attr );
+      }
+      if(ber!=NULL) ber_free(ber,0);
+    }
+    ldap_msgfree(entry);
   }
   /* free the returned result */
   if ( result != NULL ) ldap_msgfree( result );
