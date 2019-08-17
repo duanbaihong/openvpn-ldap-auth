@@ -431,18 +431,20 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
     if(string_array_len(argv)>1){
       LOGWARNING("groupname:%s ,description name: %s",cc->group_name,cc->group_description);
       config_iptables_printf(iptblrules);
-      char * const argv_t[]={
-                "/usr/bin/sudo",
-                "-u",
-                "root",
-                "/sbin/iptables",
-                "-A",
-                "INPUT",
-                "-p",
-                "tcp",
-                "-j",
-                "ACCEPT",
-                NULL};
+      char *const argv_t[] = {
+          "/usr/bin/sudo",
+          "-u",
+          "root",
+          "/sbin/iptables",
+          "-I",
+          "INPUT",
+          "-p",
+          "all",
+          "-s",
+          argv[2],
+          "-j",
+          cc->group_name,
+          NULL};
       char * const envp_t[]={"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",NULL};
       ldap_plugin_execve("/usr/bin/sudo",argv_t,envp_t);
     }

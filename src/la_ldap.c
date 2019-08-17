@@ -555,7 +555,8 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
     LDAPMessage *entry;
     struct berval **vals;
     char *attr;
-    for(entry=ldap_first_entry(ldap,result);entry!=NULL;entry=ldap_next_entry(ldap,result) )
+
+    for (entry = ldap_first_entry(ldap, result); entry != NULL; entry = ldap_next_entry(ldap, entry))
     {
       BerElement *ber;
       for(attr=ldap_first_attribute(ldap,entry,&ber);attr!=NULL;attr=ldap_next_attribute(ldap,entry,ber))
