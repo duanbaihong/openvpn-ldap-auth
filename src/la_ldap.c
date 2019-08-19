@@ -582,7 +582,7 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
         ldap_memfree( attr );
       }
       if(ber != NULL) ber_free(ber, 0);
-      // ldap_msgfree(entry);
+      ldap_msgfree(entry);
     }
   }
   /* free the returned result */

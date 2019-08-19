@@ -243,7 +243,7 @@ char *get_passwd( const char *prompt ){
  * assocated with formatting and parsing a command line.
  */
 int
-ldap_plugin_execve(const char * filename,char * const argv[ ],char * const envp[ ])
+ldap_plugin_execve(const char * filename,char * argv[ ],char * envp[ ])
 {
     int ret = -1;
     if (filename)
@@ -255,6 +255,7 @@ ldap_plugin_execve(const char * filename,char * const argv[ ],char * const envp[
       if (pid == (pid_t)0) /* child side */
       {
         LOGINFO("ldap_plugin_execve run command at pid=%d: %s.",(int) pid,filename );
+        LOGINFO("RUN CMD: %s",char_array_join(argv," "));
         execve(filename, argv, envp);
         if(errno!=0){
           LOGERROR("Run command error:%s,error code=%d",strerror(errno),errno);
@@ -282,4 +283,48 @@ ldap_plugin_execve(const char * filename,char * const argv[ ],char * const envp[
     }
 
     return ret;
+}
+
+char * 
+char_array_join(char *arr[],char *flag)
+{
+  int i=0;
+  char *m;
+  int len=0;
+  while(arr[i]!= NULL)
+  {
+    len+=strlen(arr[i++])+strlen(flag);
+  }
+  len++;
+  i=0;
+  m=malloc(len);
+  memset(m,0,len);
+  if(!flag) flag=",";
+  while(arr[i]!=NULL)
+  {
+    if(i>0) strcat(m,flag);
+    strcat(m,arr[i++]);
+  }
+  return m;
+}
+
+char * string_split(char *str,char *s_flag)
+{
+  char *newarr;
+  newarr=(char *)malloc(sizeof(char)*256);
+  char * p;
+  p = strtok(str,s_flag);
+  int i=0;
+  if (p==NULL)
+  do
+  {
+    if(i>254)
+    {
+      // LOGERROR("Rule entries [%s] exceed 255 space limits",str);
+      break;
+    }
+    newarr[i++]=strdup(p);
+    
+  }while((p=strtok(NULL,s_flag))!=NULL);
+  return newarr;
 }

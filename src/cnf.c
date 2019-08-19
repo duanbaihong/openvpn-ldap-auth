@@ -36,7 +36,6 @@
 #include "yaml.h"
 #include <stdbool.h>
 
-
 #define LOGDEBUG_IFSET(a,prefix) if(a) LOGDEBUG( "%s: %s", prefix, a);
 #define STRDUP_IFNOTSET(a,b) if(!a && b) a=strdup(b);
 #define CHECK_IF_IN_PROFILE(a,b) if(!b){ \
@@ -156,6 +155,10 @@ profile_config_free ( profile_config_t *c ){
   check_and_free( c->group_search_filter );
   check_and_free( c->member_attribute );
   check_and_free( c->default_pf_rules );
+  for(int i=0;c->group_map_field[i]!=NULL;i++)
+  {
+    check_and_free( c->group_map_field[i] );
+  }
   /* redirect gateway */
   check_and_free( c->redirect_gateway_prefix );
   check_and_free( c->redirect_gateway_flags );
@@ -287,29 +290,6 @@ skip_whitespaces( char *l ){
   while(isspace(l[0]))
     l++;
   return l;
-}
-
-char * 
-char_array_join(char *arr[],char *flag)
-{
-  int i=0;
-  char *m;
-  int len=0;
-  while(arr[i]!= NULL)
-  {
-    len+=strlen(arr[i++])+strlen(flag);
-  }
-  len++;
-  i=0;
-  m=malloc(len);
-  memset(m,0,len);
-  if(!flag) flag=",";
-  while(arr[i]!=NULL)
-  {
-    if(i>0) strcat(m,flag);
-    strcat(m,arr[i++]);
-  }
-  return m;
 }
 
 int
@@ -665,18 +645,63 @@ void config_ldap_plugin_free(ldap_config_keyvalue_t *rules)
 
 void config_init_iptable_rules(ldap_config_keyvalue_t *rules)
 {
+  char * envp[]={
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      NULL
+    };
+  char *const filename="/usr/bin/sudo";
+  char * runcmd="/sbin/iptables";
+  char * argv_f[] = {
+        filename,
+        "-u",
+        "root",
+        runcmd,
+        "-N",
+        "",
+        NULL};
+  char * argv_item[] = {
+        filename,
+        "-u",
+        "root",
+        runcmd,
+        "-I",
+        "%s",
+        "%cmd",
+        NULL};
   int i=0;
   while (i <rules->klen)
   {
     int m=0;
-    printf("%d,%s:\n",i,rules->keymaps[i].name);
+    if(rules->keymaps[i].name!=NULL)
+    {
+      argv_f[5]=rules->keymaps[i].name;
+      LOGINFO("CMD: %s",char_array_join(argv_f," "));
+      if(ldap_plugin_execve(filename,argv_f,envp)!=0){
+        LOGERROR("Run command error:[%s] msg:%s,error code=%d",
+          rules->keymaps[i].name,
+          strerror(errno),
+          errno);
+      }
+    }
     while(m<rules->keymaps[i].vlen){
-      printf("\t%d-%d-%s\n",m,rules->keymaps[i].vlen,rules->keymaps[i].value[m]);
+      if(rules->keymaps[i].value[m]!=NULL)
+      {
+        argv_item[5]=rules->keymaps[i].name;
+        argv_item[6]=rules->keymaps[i].value[m];
+        LOGINFO("CMD: %s",char_array_join(argv_item," "));
+        if(ldap_plugin_execve(filename,argv_f,envp)!=0){
+          LOGERROR("Run command error:[%s] msg:%s,error code=%d",
+          rules->keymaps[i].value[m],
+          strerror(errno),
+          errno);
+        }
+      }
       m++;
     }
     i++;
-  }
+  } 
 }
+
 
 int config_init_ldap_config_set(const char *filename,int verb)
 {
@@ -780,6 +805,8 @@ int config_init_ldap_config_set(const char *filename,int verb)
     config_ldap_printf(ldapconfig);
     config_iptables_printf(iptblrules);
   }
+  // 初始iptables规则。
+  config_init_iptable_rules(iptblrules);
   fclose(fh);
   return 0;
 }

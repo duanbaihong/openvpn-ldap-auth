@@ -424,14 +424,14 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
 #endif
   else if(type == OPENVPN_PLUGIN_LEARN_ADDRESS){
     client_context_t *cc = per_client_context;
-    char *argvjoin;
-    argvjoin = char_array_join((char *)*argv," ");
-    LOGDEBUG("PLUGIN_LEARN_ADDRESS:%d", argvjoin);
-    free(argvjoin);
+    // char *argvjoin;
+    // argvjoin = char_array_join((char *)*argv," ");
+    LOGDEBUG("PLUGIN_LEARN_ADDRESS:%s %s", argv[1],argv[2]);
+    // free(argvjoin);
     if(string_array_len(argv)>1){
       LOGWARNING("groupname:%s ,description name: %s",cc->group_name,cc->group_description);
       config_iptables_printf(iptblrules);
-      char *const argv_t[] = {
+      char * argv_t[] = {
           "/usr/bin/sudo",
           "-u",
           "root",
@@ -441,11 +441,11 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
           "-p",
           "all",
           "-s",
-          argv[2],
+          (char *)argv[2],
           "-j",
           cc->group_name,
           NULL};
-      char * const envp_t[]={"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",NULL};
+      char * envp_t[]={"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",NULL};
       ldap_plugin_execve("/usr/bin/sudo",argv_t,envp_t);
     }
     return OPENVPN_PLUGIN_FUNC_SUCCESS;
