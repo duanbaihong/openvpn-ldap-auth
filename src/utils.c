@@ -308,23 +308,73 @@ char_array_join(char *arr[],char *flag)
   return m;
 }
 
-char * string_split(char *str,char *s_flag)
-{
-  char *newarr;
-  newarr=(char *)malloc(sizeof(char)*256);
-  char * p;
-  p = strtok(str,s_flag);
-  int i=0;
-  if (p==NULL)
-  do
-  {
-    if(i>254)
-    {
-      // LOGERROR("Rule entries [%s] exceed 255 space limits",str);
-      break;
-    }
-    newarr[i++]=strdup(p);
+// char * string_split(char *str,char *s_flag)
+// {
+//   char *newarr;
+//   newarr=(char *)malloc(sizeof(char)*256);
+//   char * p;
+//   p = strtok(str,s_flag);
+//   int i=0;
+//   if (p==NULL)
+//   do
+//   {
+//     if(i>254)
+//     {
+//       // LOGERROR("Rule entries [%s] exceed 255 space limits",str);
+//       break;
+//     }
+//     newarr[i++]=strdup(p);
     
-  }while((p=strtok(NULL,s_flag))!=NULL);
-  return newarr;
+//   }while((p=strtok(NULL,s_flag))!=NULL);
+//   return newarr;
+// }
+
+int
+ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, char * rule_item)
+{
+  int ret = -1;
+  if(!filter_name) return ret;
+  char * filename="/usr/bin/sudo -u root";
+  char * cmd_argv;
+  char * iptables_cmd="/sbin/iptables -N";
+  int len=strlen(filename)+strlen(iptables_cmd)+strlen(filter_name)+strlen(rule_item)+4;
+  cmd_argv=malloc(len);
+  memset(cmd_argv,0,len);
+  switch (cmd_type)
+  {
+    case IPTABLE_CREATE_FILTER:
+      iptables_cmd="/sbin/iptables -N";
+      sprintf(cmd_argv,"%s %s %s",filename,iptables_cmd,filter_name);
+      break;
+    case IPTABLE_APPEND_FILTER:
+      iptables_cmd="/sbin/iptables -A";
+      sprintf(cmd_argv,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
+      break;
+    case IPTABLE_EMPTY_FILTER:
+      iptables_cmd="/sbin/iptables -F";
+      sprintf(cmd_argv,"%s %s %s",filename,iptables_cmd,filter_name);
+      break;
+    case IPTABLE_DELETE_FILTER:
+      iptables_cmd="/sbin/iptables -X";
+      sprintf(cmd_argv,"%s %s %s",filename,iptables_cmd,filter_name);
+      break;
+    default:
+      break;
+  }
+  if(cmd_argv)
+  {
+    ret=system(cmd_argv);
+    if(ret){
+      LOGERROR("Run command error:[%s %s %s] msg:%s,error code=%d",
+        iptables_cmd,
+        filter_name,
+        rule_item,
+        strerror(errno),
+        errno);
+    }else{
+      LOGINFO("RUN CMD: %s %s %s. return code=%d",iptables_cmd,filter_name,rule_item,ret);
+    }
+    FREE_IF_NOT_NULL(cmd_argv);
+  }
+  return ret;
 }

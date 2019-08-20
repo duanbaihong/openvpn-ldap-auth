@@ -79,11 +79,12 @@ static void * action_thread_main_loop(void *c);
  *  "USERNAME" -- substitute client-supplied username
  *  "PASSWORD" -- substitute client-specified password
  */
-#if 0
+// #if 0
 /*
  * Given an environmental variable name, dumps
  * the envp array values.
  */
+
 static void
 dump_env (const char *envp[])
 {
@@ -96,7 +97,7 @@ dump_env (const char *envp[])
   }
   fprintf (stderr, "//END of dump_env\\\\\n");
 }
-#endif
+// #endif
 
 #if defined(HAVE_GETRLIMIT) && defined(RLIMIT_CORE)
     static void unlimit_core_size(void)
@@ -137,6 +138,7 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   uint8_t     allow_core_files = 0;
 
   /* Are we in daemonized mode? If so, are we redirecting the logs? */
+  dump_env(envp);
   daemon_string = get_env ("daemon", envp);
   use_syslog = 0;
   if( daemon_string && daemon_string[0] == '1'){
@@ -424,27 +426,26 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
 #endif
   else if(type == OPENVPN_PLUGIN_LEARN_ADDRESS){
     client_context_t *cc = per_client_context;
-    // char *argvjoin;
-    // argvjoin = char_array_join((char *)*argv," ");
     LOGDEBUG("PLUGIN_LEARN_ADDRESS:%s %s", argv[1],argv[2]);
-    // free(argvjoin);
     if(string_array_len(argv)>1){
+      char *action_type="-I";
+      if(!strcasecmp(argv[1],"delete")) action_type="-D";
       LOGWARNING("groupname:%s ,description name: %s",cc->group_name,cc->group_description);
-      config_iptables_printf(iptblrules);
       char * argv_t[] = {
           "/usr/bin/sudo",
           "-u",
           "root",
           "/sbin/iptables",
-          "-I",
-          "INPUT",
+          action_type,
+          "FORWARD",
           "-p",
           "all",
           "-s",
-          (char *)argv[2],
+          (char*)argv[2],
           "-j",
           cc->group_name,
           NULL};
+      if(!strcasecmp(argv[1],"delete")) argv_t[9]=NULL;
       char * envp_t[]={"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",NULL};
       ldap_plugin_execve("/usr/bin/sudo",argv_t,envp_t);
     }
@@ -476,6 +477,7 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
   }
   ldap_context_free( context );
   // 
+  config_uninit_iptable_rules(iptblrules);
   config_ldap_plugin_free(iptblrules);
   config_ldap_plugin_free(ldapconfig);
   //pthread_exit(NULL); 
@@ -505,6 +507,7 @@ openvpn_plugin_abort_v1 (openvpn_plugin_handle_t handle)
     }
     ldap_context_free( context );
     
+    config_uninit_iptable_rules(iptblrules);
     config_ldap_plugin_free(iptblrules);
     config_ldap_plugin_free(ldapconfig);
   }

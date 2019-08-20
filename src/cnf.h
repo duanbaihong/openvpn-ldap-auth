@@ -121,12 +121,12 @@ extern int config_is_redirect_gw_enabled( config_t *c );
 extern int config_is_redirect_gw_enabled_for_profile( profile_config_t *p );
 
 // yaml config 
-extern char * char_array_join(char *arr[],char *flag);
+
 extern int  config_parse_file_new( config_t *c );
 extern void config_ldap_printf(ldap_config_keyvalue_t *rules);
 extern void config_iptables_printf(ldap_config_keyvalue_t *rules);
 extern void config_ldap_plugin_free(ldap_config_keyvalue_t *rules);
 extern void config_init_iptable_rules(ldap_config_keyvalue_t *rules);
+extern void config_uninit_iptable_rules(ldap_config_keyvalue_t *rules);
 extern int  config_init_ldap_config_set(const char *filename,int verb);
-
 #endif /* _CNF_H_ */

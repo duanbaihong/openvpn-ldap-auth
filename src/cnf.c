@@ -642,66 +642,52 @@ void config_ldap_plugin_free(ldap_config_keyvalue_t *rules)
   check_and_free(rules);
   LOGNOTICE("free ldap plugin malloc.");
 }
-
-void config_init_iptable_rules(ldap_config_keyvalue_t *rules)
+void config_uninit_iptable_rules(ldap_config_keyvalue_t *rules)
 {
-  char * envp[]={
-      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-      NULL
-    };
-  char *const filename="/usr/bin/sudo";
-  char * runcmd="/sbin/iptables";
-  char * argv_f[] = {
-        filename,
-        "-u",
-        "root",
-        runcmd,
-        "-N",
-        "",
-        NULL};
-  char * argv_item[] = {
-        filename,
-        "-u",
-        "root",
-        runcmd,
-        "-I",
-        "%s",
-        "%cmd",
-        NULL};
   int i=0;
+  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER,"FORWARD","");
   while (i <rules->klen)
   {
-    int m=0;
     if(rules->keymaps[i].name!=NULL)
     {
-      argv_f[5]=rules->keymaps[i].name;
-      LOGINFO("CMD: %s",char_array_join(argv_f," "));
-      if(ldap_plugin_execve(filename,argv_f,envp)!=0){
-        LOGERROR("Run command error:[%s] msg:%s,error code=%d",
-          rules->keymaps[i].name,
-          strerror(errno),
-          errno);
-      }
-    }
-    while(m<rules->keymaps[i].vlen){
-      if(rules->keymaps[i].value[m]!=NULL)
-      {
-        argv_item[5]=rules->keymaps[i].name;
-        argv_item[6]=rules->keymaps[i].value[m];
-        LOGINFO("CMD: %s",char_array_join(argv_item," "));
-        if(ldap_plugin_execve(filename,argv_f,envp)!=0){
-          LOGERROR("Run command error:[%s] msg:%s,error code=%d",
-          rules->keymaps[i].value[m],
-          strerror(errno),
-          errno);
-        }
-      }
-      m++;
+      ldap_plugin_run_system(IPTABLE_EMPTY_FILTER,rules->keymaps[i].name,"");
+      ldap_plugin_run_system(IPTABLE_DELETE_FILTER,rules->keymaps[i].name,"");
     }
     i++;
   } 
 }
 
+void config_init_iptable_rules(ldap_config_keyvalue_t *rules)
+{
+  // char * envp[]={
+  //     "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+  //     NULL
+  //   };
+  int i=0;
+  LOGINFO("Starting Initial iptables policy entry。");
+  while (i <rules->klen)
+  {
+    int m=0;
+    if(rules->keymaps[i].name!=NULL)
+    {
+      int ret;
+      ret =ldap_plugin_run_system(IPTABLE_CREATE_FILTER,rules->keymaps[i].name,"");
+      if(ret!=0)
+      {
+        i++;
+        continue;
+      }
+      while(m<rules->keymaps[i].vlen){
+        if(rules->keymaps[i].value[m]!=NULL)
+        {
+          ldap_plugin_run_system(IPTABLE_APPEND_FILTER,rules->keymaps[i].name,rules->keymaps[i].value[m]);
+        }
+        m++;
+      }
+      i++;
+    }
+  } 
+}
 
 int config_init_ldap_config_set(const char *filename,int verb)
 {

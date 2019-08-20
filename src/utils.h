@@ -26,6 +26,16 @@
 #include <stdlib.h>
 #include "types.h"
 #define FREE_IF_NOT_NULL(a) if (a != NULL) la_free (a)
+
+
+
+typedef enum {
+  IPTABLE_CREATE_FILTER=1,
+  IPTABLE_APPEND_FILTER,
+  IPTABLE_EMPTY_FILTER,
+  IPTABLE_DELETE_FILTER
+} iptable_rules_action_type;
+
 /* memory allocation */
 extern void *la_malloc( size_t size );
 extern void la_free( void *ptr );
@@ -64,5 +74,6 @@ extern int ldap_array_len(char *arr[]);
 
 extern int string_array_len(const char *array[]);
 extern const char *get_env(const char *name, const char *envp[]);
+extern int ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, char * rule_item);
 #endif /* _UTILS_H_ */
 
