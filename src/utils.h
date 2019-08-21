@@ -31,9 +31,12 @@
 
 typedef enum {
   IPTABLE_CREATE_FILTER=1,
-  IPTABLE_APPEND_FILTER,
   IPTABLE_EMPTY_FILTER,
-  IPTABLE_DELETE_FILTER
+  IPTABLE_DELETE_FILTER,
+  IPTABLE_APPEND_ROLE,
+  IPTABLE_INSERT_ROLE,
+  IPTABLE_DELETE_ROLE
+
 } iptable_rules_action_type;
 
 /* memory allocation */
@@ -75,5 +78,11 @@ extern int ldap_array_len(char *arr[]);
 extern int string_array_len(const char *array[]);
 extern const char *get_env(const char *name, const char *envp[]);
 extern int ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, char * rule_item);
+extern void dump_env (const char *envp[]);
+extern int write_to_auth_control_file( char *auth_control_file, char value );
+extern void check_and_free( void *d );
+extern unsigned short NetmaskToCidr(const char* netmask);
+extern char * GetNetworkAddress(const char* ipaddress,const char* netmask);
+extern const char * GetNetworkAndCIDRAddress(const char* ipaddress,const char* netmask);
 #endif /* _UTILS_H_ */
 

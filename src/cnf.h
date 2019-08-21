@@ -42,9 +42,17 @@ typedef struct ldap_conf_t
 } ldap_config_keyvalue_t;
 
 
-ldap_config_keyvalue_t *iptblrules;
-ldap_config_keyvalue_t *ldapconfig;
-
+typedef struct openvpn_server_info
+{
+  const char *listenip;
+  const char *serverip;
+  const char *serverport;
+  const char *netmask;
+  const char *netaddr;
+  const char *proto;
+  const char *dev;
+  int verb;
+} ldap_openvpn_server_info;
 
 typedef enum ldap_search_scope{
   LA_SCOPE_BASE = 0,
@@ -108,6 +116,13 @@ typedef struct config{
   list_t    *profiles;
 } config_t;
 
+
+ldap_config_keyvalue_t *iptblrules;
+ldap_config_keyvalue_t *ldapconfig;
+ldap_openvpn_server_info *openvpnserverinfo;
+
+
+
 extern int config_parse_file( const char *filename, config_t *c );
 
 extern config_t *config_new( void );
@@ -128,5 +143,6 @@ extern void config_iptables_printf(ldap_config_keyvalue_t *rules);
 extern void config_ldap_plugin_free(ldap_config_keyvalue_t *rules);
 extern void config_init_iptable_rules(ldap_config_keyvalue_t *rules);
 extern void config_uninit_iptable_rules(ldap_config_keyvalue_t *rules);
-extern int  config_init_ldap_config_set(const char *filename,int verb);
+extern int  config_init_ldap_config_set(const char *filename,const char *envp[]);
+extern void config_ldap_plugin_serverinfo_free(ldap_openvpn_server_info *info);
 #endif /* _CNF_H_ */

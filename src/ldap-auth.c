@@ -37,7 +37,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
-#include <fcntl.h>
+
 #include <signal.h>
 
 #ifdef HAVE_SYSLOG_H
@@ -70,6 +70,18 @@
 #define OCONFIG "/etc/openvpn/openvpn-ldap.yaml"
 // #define OCONFIG "/etc/openvpn/openvpn-ldap.conf"
 pthread_t action_thread = 0;
+// 定义一个结构体数组来保存那些用户有登陆。
+typedef struct login_ip_hash
+{
+  u_int len;
+  struct user_list
+  {
+    char * username;
+    char * ip;
+    char * description;
+  } userlist[2048];
+} login_ip_hash_r;
+
 
 static void * action_thread_main_loop(void *c);
 /*
@@ -79,25 +91,7 @@ static void * action_thread_main_loop(void *c);
  *  "USERNAME" -- substitute client-supplied username
  *  "PASSWORD" -- substitute client-specified password
  */
-// #if 0
-/*
- * Given an environmental variable name, dumps
- * the envp array values.
- */
 
-static void
-dump_env (const char *envp[])
-{
-
-  fprintf (stderr, "//START of dump_env\\\\\n");
-  if (envp){
-    int i;
-    for (i = 0; envp[i]; ++i)
-      fprintf (stderr, "%s\n", envp[i]);
-  }
-  fprintf (stderr, "//END of dump_env\\\\\n");
-}
-// #endif
 
 #if defined(HAVE_GETRLIMIT) && defined(RLIMIT_CORE)
     static void unlimit_core_size(void)
@@ -128,7 +122,7 @@ dump_env (const char *envp[])
 OPENVPN_EXPORT openvpn_plugin_handle_t
 openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char *envp[], struct openvpn_plugin_string_list **return_list)
 {
-
+  
   ldap_context_t *context;
   const char *daemon_string = NULL;
   const char *log_redirect = NULL;
@@ -138,7 +132,7 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   uint8_t     allow_core_files = 0;
 
   /* Are we in daemonized mode? If so, are we redirecting the logs? */
-  dump_env(envp);
+  // dump_env(envp);
   daemon_string = get_env ("daemon", envp);
   use_syslog = 0;
   if( daemon_string && daemon_string[0] == '1'){
@@ -219,17 +213,20 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   const char *verb_string = get_env ("verb", envp);
   if (verb_string)
     context->verb = atoi (verb_string);
-
-  if( config_init_ldap_config_set( configfile, context->verb ) ){
+  // 解析配置文件信息
+  if( config_init_ldap_config_set( configfile, envp ) ){
     goto error;
   }
+  // 初始配置文件信息
   config_parse_file_new( context->config );
   /**
    * Set default config values
    */
   config_set_default( context->config );
 
-
+  // 初始iptables规则。
+  config_init_iptable_rules(iptblrules);
+  
   /* when ldap userconf is define, we need to hook onto those callbacks */
   if( config_is_pf_enabled( context->config )){
     *type_mask |= OPENVPN_PLUGIN_MASK (OPENVPN_PLUGIN_ENABLE_PF);
@@ -290,36 +287,6 @@ error:
   }
   return NULL;
 }
-
-/* write a value to auth_control_file */
-int
-write_to_auth_control_file( char *auth_control_file, char value )
-{
-  int fd, rc;
-  int err = 0;
-  fd = open( auth_control_file, O_WRONLY | O_CREAT, 0700 );
-  if( fd == -1 ){
-    LOGERROR( "Could not open file auth_control_file %s: %s", auth_control_file, strerror( errno ) );
-    return -1;
-  }
-  rc = write( fd, &value, 1 );
-  if( rc == -1 ){
-    LOGERROR( "Could not write value %c to auth_control_file %s: %s", value, auth_control_file, strerror( errno ) );
-    err = 1;
-  }else if( rc !=1 ){
-    LOGERROR( "Could not write value %c to auth_control_file %s", value, auth_control_file );
-    err = 1;
-  }
-  rc = close( fd );
-  if( rc != 0 ){
-    LOGERROR( "Could not close file auth_control_file %s: %s", auth_control_file, strerror( errno ) );
-  }
-  /* Give the user a hind on why it potentially failed */
-  if( err != 0)
-    LOGERROR( "Is *tmp-dir* set up correctly in openvpn config?");
-  return rc == 0;
-}
-
 
 OPENVPN_EXPORT int
 openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
@@ -428,26 +395,42 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
     client_context_t *cc = per_client_context;
     LOGDEBUG("PLUGIN_LEARN_ADDRESS:%s %s", argv[1],argv[2]);
     if(string_array_len(argv)>1){
-      char *action_type="-I";
-      if(!strcasecmp(argv[1],"delete")) action_type="-D";
+      char *fmt_rule="-p all -s %s -j %s -m comment --comment 'User [%s]=>[%s]'";
+      if(!strcasecmp(argv[1],"add") || !strcasecmp(argv[1],"update")) 
+      {
+        if(argv[2]!=NULL && argv[3]!=NULL && cc->group_name!=NULL )
+        {
+          char *desc=cc->group_description!=NULL?cc->group_description:"\0";
+          int len=strlen(fmt_rule)+strlen(argv[2])+strlen(argv[3])+strlen(cc->group_name)+strlen(desc);
+          char rules_item[len];
+          sprintf(rules_item,fmt_rule,argv[2],cc->group_name,argv[3],desc);
+          ldap_plugin_run_system(IPTABLE_INSERT_ROLE,"FORWARD",rules_item);
+        }
+      }
+      else if(!strcasecmp(argv[1],"delete")) 
+      {
+        LOGINFO("delete---->iptables;");
+        // ldap_plugin_run_system(IPTABLE_APPEND_ROLE,"FORWARD",fmt_rule)
+      }
+
       LOGWARNING("groupname:%s ,description name: %s",cc->group_name,cc->group_description);
-      char * argv_t[] = {
-          "/usr/bin/sudo",
-          "-u",
-          "root",
-          "/sbin/iptables",
-          action_type,
-          "FORWARD",
-          "-p",
-          "all",
-          "-s",
-          (char*)argv[2],
-          "-j",
-          cc->group_name,
-          NULL};
-      if(!strcasecmp(argv[1],"delete")) argv_t[9]=NULL;
-      char * envp_t[]={"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",NULL};
-      ldap_plugin_execve("/usr/bin/sudo",argv_t,envp_t);
+      // char * argv_t[] = {
+      //     "/usr/bin/sudo",
+      //     "-u",
+      //     "root",
+      //     "/sbin/iptables",
+      //     action_type,
+      //     "FORWARD",
+      //     "-p",
+      //     "all",
+      //     "-s",
+      //     (char*)argv[2],
+      //     "-j",
+      //     cc->group_name,
+      //     NULL};
+      // if(!strcasecmp(argv[1],"delete")) argv_t[9]=NULL;
+      // char * envp_t[]={"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",NULL};
+      // ldap_plugin_execve("/usr/bin/sudo",argv_t,envp_t);
     }
     return OPENVPN_PLUGIN_FUNC_SUCCESS;
   }
@@ -480,6 +463,7 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
   config_uninit_iptable_rules(iptblrules);
   config_ldap_plugin_free(iptblrules);
   config_ldap_plugin_free(ldapconfig);
+  config_ldap_plugin_serverinfo_free(openvpnserverinfo);
   //pthread_exit(NULL); 
 }
 
@@ -516,6 +500,10 @@ openvpn_plugin_abort_v1 (openvpn_plugin_handle_t handle)
 OPENVPN_EXPORT int
 openvpn_plugin_select_initialization_point_v1 (void)
 {
+  // if(DODEBUG)
+  // {
+    LOGDEBUG("OPENVPN_PLUGIN_INIT_POST_UID_CHANGE");
+  // }
   return OPENVPN_PLUGIN_INIT_POST_UID_CHANGE;
 }
 

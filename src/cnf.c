@@ -47,10 +47,6 @@ continue;\
 
 //#define STRDUP_IFNOTSET_NOTNULL(a, b) if( b ) STRDUP_IFNOTSET(a,b)
 
-void check_and_free( void *d ){
-	if( d ) la_free( d );
-}
-
 void
 config_set_default( config_t *c){
 #ifdef OURI
@@ -87,6 +83,15 @@ config_set_default( config_t *c){
 #ifdef OTIMEOUT
   if( !c->ldap->timeout ) c->ldap->timeout = OTIMEOUT;
 #endif
+
+// 设置默认值
+if(!openvpnserverinfo->verb) openvpnserverinfo->verb=0;
+STRDUP_IFNOTSET(openvpnserverinfo->serverport,"1194");
+STRDUP_IFNOTSET(openvpnserverinfo->listenip,"0.0.0.0");
+STRDUP_IFNOTSET(openvpnserverinfo->serverip,"172.16.0.0");
+STRDUP_IFNOTSET(openvpnserverinfo->proto,"udp");
+STRDUP_IFNOTSET(openvpnserverinfo->netmask,"255.255.255.0");
+STRDUP_IFNOTSET(openvpnserverinfo->netaddr,GetNetworkAndCIDRAddress(openvpnserverinfo->serverip,openvpnserverinfo->netmask));
 
 }
 
@@ -626,6 +631,18 @@ void config_ldap_printf(ldap_config_keyvalue_t *rules)
     }
   }
 }
+void config_ldap_plugin_serverinfo_free(ldap_openvpn_server_info *info)
+{
+  check_and_free((char *)info->dev);
+  check_and_free((char *)info->listenip);
+  check_and_free((char *)info->netmask);
+  check_and_free((char *)info->netaddr);
+  check_and_free((char *)info->proto);
+  check_and_free((char *)info->serverip);
+  check_and_free((char *)info->serverport);
+  check_and_free(info);
+}
+
 void config_ldap_plugin_free(ldap_config_keyvalue_t *rules)
 {
   int i=0;
@@ -642,10 +659,24 @@ void config_ldap_plugin_free(ldap_config_keyvalue_t *rules)
   check_and_free(rules);
   LOGNOTICE("free ldap plugin malloc.");
 }
+
+static void config_default_iptable_rules(iptable_rules_action_type ctype)
+{
+  char allowVpn[128];
+  sprintf(allowVpn,"-p %s -m %s --dport %s -j ACCEPT",openvpnserverinfo->proto,openvpnserverinfo->proto,openvpnserverinfo->serverport);
+  ldap_plugin_run_system(ctype,"INPUT",allowVpn);
+  // 添加FORWORD链默认规则 默认允许DNS解析，最后规则是拒绝所有连接。
+  // char * netaddr=GetNetworkAndCIDRAddress(localip,localnetmask);
+  ldap_plugin_run_system(ctype,"FORWARD","-p all -j DROP");
+  sprintf(allowVpn,"-p tcp -m tcp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
+  ldap_plugin_run_system(ctype,"FORWARD",allowVpn);
+  sprintf(allowVpn,"-p udp -m udp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
+  ldap_plugin_run_system(ctype,"FORWARD",allowVpn);
+}
 void config_uninit_iptable_rules(ldap_config_keyvalue_t *rules)
 {
   int i=0;
-  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER,"FORWARD","");
+  config_default_iptable_rules(IPTABLE_DELETE_ROLE);
   while (i <rules->klen)
   {
     if(rules->keymaps[i].name!=NULL)
@@ -659,12 +690,9 @@ void config_uninit_iptable_rules(ldap_config_keyvalue_t *rules)
 
 void config_init_iptable_rules(ldap_config_keyvalue_t *rules)
 {
-  // char * envp[]={
-  //     "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-  //     NULL
-  //   };
   int i=0;
   LOGINFO("Starting Initial iptables policy entry。");
+  config_default_iptable_rules(IPTABLE_INSERT_ROLE);
   while (i <rules->klen)
   {
     int m=0;
@@ -680,16 +708,18 @@ void config_init_iptable_rules(ldap_config_keyvalue_t *rules)
       while(m<rules->keymaps[i].vlen){
         if(rules->keymaps[i].value[m]!=NULL)
         {
-          ldap_plugin_run_system(IPTABLE_APPEND_FILTER,rules->keymaps[i].name,rules->keymaps[i].value[m]);
+          ldap_plugin_run_system(IPTABLE_APPEND_ROLE,rules->keymaps[i].name,rules->keymaps[i].value[m]);
         }
         m++;
       }
+      // 添加一条返回调用链规则
+      ldap_plugin_run_system(IPTABLE_APPEND_ROLE,rules->keymaps[i].name,"-p all -j RETURN");
       i++;
     }
   } 
 }
 
-int config_init_ldap_config_set(const char *filename,int verb)
+int config_init_ldap_config_set(const char *filename,const char *envp[])
 {
   FILE *fh = fopen(filename, "r");
   if( fh == NULL ){
@@ -714,10 +744,23 @@ int config_init_ldap_config_set(const char *filename,int verb)
   
   iptblrules = malloc(sizeof(ldap_config_keyvalue_t));
   ldapconfig = malloc(sizeof(ldap_config_keyvalue_t));
-
+  openvpnserverinfo= malloc(sizeof(ldap_openvpn_server_info));
   memset(iptblrules,0,sizeof(ldap_config_keyvalue_t));
   memset(ldapconfig,0,sizeof(ldap_config_keyvalue_t));
+  memset(openvpnserverinfo,0,sizeof(ldap_openvpn_server_info));
 
+  // 保存openvpn基本配置信息。
+  const char *verb=get_env("verb",envp);
+  openvpnserverinfo->verb=atoi(verb);
+  openvpnserverinfo->listenip=strdup(get_env("local_1",envp));
+  openvpnserverinfo->serverip=strdup(get_env("ifconfig_local",envp));
+  openvpnserverinfo->serverport=strdup(get_env("local_port_1",envp));
+  openvpnserverinfo->proto=strdup(!strcasecmp(get_env("proto_1",envp),"udp")?"udp":"tcp");
+  openvpnserverinfo->dev=strdup(get_env("dev",envp));
+  openvpnserverinfo->netmask=strdup(get_env("ifconfig_netmask",envp));
+  openvpnserverinfo->netaddr=GetNetworkAndCIDRAddress(openvpnserverinfo->serverip,get_env("ifconfig_netmask",envp));
+
+  // 
   ldap_config_keyvalue_t *tmpconfig;
   tmpconfig=ldapconfig;
   do {
@@ -786,13 +829,11 @@ int config_init_ldap_config_set(const char *filename,int verb)
   } while(token.type != YAML_STREAM_END_TOKEN);
   yaml_parser_delete(&parser);
 
-  if(DODEBUG(verb))
+  if(DODEBUG(openvpnserverinfo->verb))
   {
     config_ldap_printf(ldapconfig);
     config_iptables_printf(iptblrules);
   }
-  // 初始iptables规则。
-  config_init_iptable_rules(iptblrules);
   fclose(fh);
   return 0;
 }

@@ -20,7 +20,7 @@
  */
 
 #include "utils.h"
-
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <termios.h>
@@ -346,10 +346,6 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
       iptables_cmd="/sbin/iptables -N";
       sprintf(cmd_argv,"%s %s %s",filename,iptables_cmd,filter_name);
       break;
-    case IPTABLE_APPEND_FILTER:
-      iptables_cmd="/sbin/iptables -A";
-      sprintf(cmd_argv,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
-      break;
     case IPTABLE_EMPTY_FILTER:
       iptables_cmd="/sbin/iptables -F";
       sprintf(cmd_argv,"%s %s %s",filename,iptables_cmd,filter_name);
@@ -357,6 +353,18 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
     case IPTABLE_DELETE_FILTER:
       iptables_cmd="/sbin/iptables -X";
       sprintf(cmd_argv,"%s %s %s",filename,iptables_cmd,filter_name);
+      break;
+    case IPTABLE_APPEND_ROLE:
+      iptables_cmd="/sbin/iptables -A";
+      sprintf(cmd_argv,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
+      break;
+    case IPTABLE_INSERT_ROLE:
+      iptables_cmd="/sbin/iptables -I";
+      sprintf(cmd_argv,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
+      break;
+    case IPTABLE_DELETE_ROLE:
+      iptables_cmd="/sbin/iptables -D";
+      sprintf(cmd_argv,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
       break;
     default:
       break;
@@ -377,4 +385,137 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
     FREE_IF_NOT_NULL(cmd_argv);
   }
   return ret;
+}
+
+// netmask to cidr
+unsigned short NetmaskToCidr(const char* netmask)
+{
+  unsigned short cidr;
+  int netmask_s[4];
+  int ipbit=-1;
+  cidr=0;
+  ipbit=sscanf(netmask, "%d.%d.%d.%d", &netmask_s[0], &netmask_s[1], &netmask_s[2], &netmask_s[3]);
+  if(ipbit<4)
+  {
+    LOGERROR("Unlawful Subnet Mask Format %s,normal format: xxx.xxx.xxx.xxx;",netmask);
+    return 0;
+  }
+  for (int i=0; i<4; i++)
+  {
+    switch(netmask_s[i])
+    {
+      case 0x80:
+        cidr+=1;
+        break;
+      case 0xC0:
+        cidr+=2;
+        break;
+      case 0xE0:
+        cidr+=3;
+        break;
+      case 0xF0:
+        cidr+=4;
+        break;
+      case 0xF8:
+        cidr+=5;
+        break;
+      case 0xFC:
+        cidr+=6;
+        break;
+      case 0xFE:
+        cidr+=7;
+        break;
+      case 0xFF:
+        cidr+=8;
+        break;
+      default:
+        return cidr;
+        break;
+    }
+  }
+  return cidr;
+}
+char * GetNetworkAddress(const char* ipaddress,const char* netmask)
+{
+  int ipaddress_new[4];
+  int netmask_new[4];
+  char *b;
+  b=malloc(16);
+  memset(b,0,16);
+  sscanf(ipaddress, "%d.%d.%d.%d", &ipaddress_new[0], &ipaddress_new[1], &ipaddress_new[2], &ipaddress_new[3]);
+  sscanf(netmask, "%d.%d.%d.%d", &netmask_new[0], &netmask_new[1], &netmask_new[2], &netmask_new[3]);
+
+  sprintf(b,"%d.%d.%d.%d",
+    ipaddress_new[0]&netmask_new[0],
+    ipaddress_new[1]&netmask_new[1],
+    ipaddress_new[2]&netmask_new[2],
+    ipaddress_new[3]&netmask_new[3]);
+  return b;
+}
+
+const char * GetNetworkAndCIDRAddress(const char* ipaddress,const char* netmask)
+{
+  char *netaddr;
+  char *b;
+  b=malloc(19);
+  memset(b,0,19);
+  netaddr=GetNetworkAddress(ipaddress,netmask);
+  sprintf(b,"%s/%d",netaddr,NetmaskToCidr(netmask));
+  check_and_free(netaddr);
+  return b;
+}
+
+
+// #if 0
+/*
+ * Given an environmental variable name, dumps
+ * the envp array values.
+ */
+
+void dump_env (const char *envp[])
+{
+
+  fprintf (stderr, "//START of dump_env\\\\\n");
+  if (envp){
+    int i;
+    for (i = 0; envp[i]; ++i)
+      fprintf (stderr, "%s\n", envp[i]);
+  }
+  fprintf (stderr, "//END of dump_env\\\\\n");
+}
+// #endif
+
+/* write a value to auth_control_file */
+int
+write_to_auth_control_file( char *auth_control_file, char value )
+{
+  int fd, rc;
+  int err = 0;
+  fd = open( auth_control_file, O_WRONLY | O_CREAT, 0700 );
+  if( fd == -1 ){
+    LOGERROR( "Could not open file auth_control_file %s: %s", auth_control_file, strerror( errno ) );
+    return -1;
+  }
+  rc = write( fd, &value, 1 );
+  if( rc == -1 ){
+    LOGERROR( "Could not write value %c to auth_control_file %s: %s", value, auth_control_file, strerror( errno ) );
+    err = 1;
+  }else if( rc !=1 ){
+    LOGERROR( "Could not write value %c to auth_control_file %s", value, auth_control_file );
+    err = 1;
+  }
+  rc = close( fd );
+  if( rc != 0 ){
+    LOGERROR( "Could not close file auth_control_file %s: %s", auth_control_file, strerror( errno ) );
+  }
+  /* Give the user a hind on why it potentially failed */
+  if( err != 0)
+    LOGERROR( "Is *tmp-dir* set up correctly in openvpn config?");
+  return rc == 0;
+}
+
+
+void check_and_free( void *d )
+{
+	if( d ) la_free( d );
 }
