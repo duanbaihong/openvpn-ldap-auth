@@ -58,7 +58,7 @@ void action_push(list_t *list, action_t *action)
   if (list_length(list) == 1)
   {
     pthread_cond_signal(&action_cond);
-    LOGINFO("Sent signal to authenticating loop");
+    LOGINFO("Sent signal to authenticating queue");
   }
   pthread_mutex_unlock(&action_mutex);
 }

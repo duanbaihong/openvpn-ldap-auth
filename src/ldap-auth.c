@@ -37,7 +37,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
-
+#include "queue.h"
 #include <signal.h>
 
 #ifdef HAVE_SYSLOG_H
@@ -65,23 +65,10 @@
 #include "client_context.h"
 #include "ldap_profile.h"
 
-
 #define DFT_REDIRECT_GATEWAY_FLAGS "def1 bypass-dhcp"
 #define OCONFIG "/etc/openvpn/openvpn-ldap.yaml"
 // #define OCONFIG "/etc/openvpn/openvpn-ldap.conf"
 pthread_t action_thread = 0;
-// 定义一个结构体数组来保存那些用户有登陆。
-typedef struct login_ip_hash
-{
-  u_int len;
-  struct user_list
-  {
-    char * username;
-    char * ip;
-    char * description;
-  } userlist[2048];
-} login_ip_hash_r;
-
 
 static void * action_thread_main_loop(void *c);
 /*
@@ -122,7 +109,7 @@ static void * action_thread_main_loop(void *c);
 OPENVPN_EXPORT openvpn_plugin_handle_t
 openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char *envp[], struct openvpn_plugin_string_list **return_list)
 {
-  
+
   ldap_context_t *context;
   const char *daemon_string = NULL;
   const char *log_redirect = NULL;
@@ -131,6 +118,8 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   int rc = 0;
   uint8_t     allow_core_files = 0;
 
+  if(InitConnVpnQueue(&ConnVpnQueue_r))
+    LOGINFO("Initial connection queue succeeded");
   /* Are we in daemonized mode? If so, are we redirecting the logs? */
   // dump_env(envp);
   daemon_string = get_env ("daemon", envp);
@@ -401,6 +390,13 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         if(argv[2]!=NULL && argv[3]!=NULL && cc->group_name!=NULL )
         {
           char *desc=cc->group_description!=NULL?cc->group_description:"\0";
+          struct VpnData_s *con_value=malloc(sizeof(struct VpnData_s));
+          con_value->ip=(char *)argv[2];
+          con_value->username=(char *)argv[3];
+          con_value->groupname=cc->group_name;
+          con_value->description=desc;
+          if(UpdateOrJoinVpnQueue(ConnVpnQueue_r,con_value))
+            LOGINFO("Join queue success %s %s to group %s",argv[2],argv[3],cc->group_name);
           int len=strlen(fmt_rule)+strlen(argv[2])+strlen(argv[3])+strlen(cc->group_name)+strlen(desc);
           char rules_item[len];
           sprintf(rules_item,fmt_rule,argv[2],cc->group_name,argv[3],desc);
@@ -409,11 +405,21 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
       }
       else if(!strcasecmp(argv[1],"delete")) 
       {
+        dump_env(argv);
+        struct VpnData_s *con_value;
+        if(ByValueLeaveVpnQueue(ConnVpnQueue_r,(char *)envp[2],&con_value))
+        {
+          printf("%s,%s",con_value->username,con_value->ip);
+          int len=strlen(fmt_rule)+strlen(argv[2])+strlen(con_value->username)+strlen(con_value->groupname)+strlen(con_value->description);
+          char rules_item[len];
+          sprintf(rules_item,fmt_rule,argv[2],con_value->groupname,con_value->username,con_value->description);
+          ldap_plugin_run_system(IPTABLE_DELETE_ROLE,"FORWARD",rules_item);
+          // free(con_value);
+        }
         LOGINFO("delete---->iptables;");
-        // ldap_plugin_run_system(IPTABLE_APPEND_ROLE,"FORWARD",fmt_rule)
+        LOGWARNING("groupname:%s ,description name: %s",con_value->groupname,con_value->description);
       }
 
-      LOGWARNING("groupname:%s ,description name: %s",cc->group_name,cc->group_description);
       // char * argv_t[] = {
       //     "/usr/bin/sudo",
       //     "-u",
@@ -461,6 +467,8 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
   ldap_context_free( context );
   // 
   config_uninit_iptable_rules(iptblrules);
+  if(DestroyVpnQueue(ConnVpnQueue_r))
+    LOGINFO("free queue success.");
   config_ldap_plugin_free(iptblrules);
   config_ldap_plugin_free(ldapconfig);
   config_ldap_plugin_serverinfo_free(openvpnserverinfo);
@@ -492,6 +500,8 @@ openvpn_plugin_abort_v1 (openvpn_plugin_handle_t handle)
     ldap_context_free( context );
     
     config_uninit_iptable_rules(iptblrules);
+    if(DestroyVpnQueue(ConnVpnQueue_r))
+      LOGINFO("free queue success.");
     config_ldap_plugin_free(iptblrules);
     config_ldap_plugin_free(ldapconfig);
   }

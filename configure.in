@@ -40,6 +40,10 @@ AC_CHECK_HEADER([lber.h],
         [AC_CHECK_LIB(lber, [ber_free])],
         [AC_MSG_ERROR("lber headers not found")])
 
+AC_CHECK_HEADER([yaml.h],
+        [AC_CHECK_LIB(yaml, [yaml_parser_initialize])],
+        [AC_MSG_ERROR("yaml.h headers not found")])
+
 AC_CHECK_HEADER([pthread.h],
       [AC_CHECK_LIB(pthread, [pthread_create])],
       [AC_MSG_ERROR("pthread headers not found")])

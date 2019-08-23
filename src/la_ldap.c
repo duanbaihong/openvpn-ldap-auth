@@ -558,7 +558,7 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
 
     for (entry = ldap_first_entry(ldap, result); entry != NULL; entry = ldap_next_entry(ldap, entry))
     {
-      BerElement *ber;
+      BerElement *ber=NULL;
       for(attr=ldap_first_attribute(ldap,entry,&ber);attr!=NULL;attr=ldap_next_attribute(ldap,entry,ber))
       {
         vals=ldap_get_values_len(ldap,entry,attr);
@@ -582,8 +582,8 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
         ldap_memfree( attr );
       }
       if(ber != NULL) ber_free(ber, 0);
-      ldap_msgfree(entry);
     }
+    ldap_msgfree(entry);
   }
   /* free the returned result */
   if ( result != NULL ) ldap_msgfree( result );

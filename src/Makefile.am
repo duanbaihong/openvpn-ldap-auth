@@ -6,6 +6,7 @@ lib_LTLIBRARIES = libopenvpn-ldap-auth.la
 auth_ldap_SOURCES = utils.h utils.c \
 							cnf.h cnf.c \
 							list.h list.c \
+							queue.h queue.c \
 							action.h action.c \
 							la_ldap.h la_ldap.c \
 							ldap_profile.h ldap_profile.c \
