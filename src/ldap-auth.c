@@ -37,7 +37,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
-#include "queue.h"
 #include <signal.h>
 
 #ifdef HAVE_SYSLOG_H
@@ -59,6 +58,7 @@
 #include "cnf.h"
 #include "utils.h"
 #include "debug.h"
+#include "queue.h"
 #include "action.h"
 #include "list.h"
 #include "la_ldap.h"
@@ -390,11 +390,11 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         if(argv[2]!=NULL && argv[3]!=NULL && cc->group_name!=NULL )
         {
           char *desc=cc->group_description!=NULL?cc->group_description:"\0";
-          struct VpnData_s *con_value=malloc(sizeof(struct VpnData_s));
-          con_value->ip=(char *)argv[2];
-          con_value->username=(char *)argv[3];
-          con_value->groupname=cc->group_name;
-          con_value->description=desc;
+          VpnData *con_value=malloc(sizeof(VpnData));
+          con_value->ip=strdup((char *)argv[2]);
+          con_value->username=strdup((char *)argv[3]);
+          con_value->groupname=strdup(cc->group_name);
+          con_value->description=strdup(desc);
           if(UpdateOrJoinVpnQueue(ConnVpnQueue_r,con_value))
             LOGINFO("Join queue success %s %s to group %s",argv[2],argv[3],cc->group_name);
           int len=strlen(fmt_rule)+strlen(argv[2])+strlen(argv[3])+strlen(cc->group_name)+strlen(desc);
@@ -405,19 +405,22 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
       }
       else if(!strcasecmp(argv[1],"delete")) 
       {
-        dump_env(argv);
-        struct VpnData_s *con_value;
-        if(ByValueLeaveVpnQueue(ConnVpnQueue_r,(char *)envp[2],&con_value))
+        // dump_env(argv);
+        VpnData *cleanvalue;
+        char *ip = (char *)argv[2];
+        if(ByValueLeaveVpnQueue(ConnVpnQueue_r,ip,&cleanvalue))
         {
-          printf("%s,%s",con_value->username,con_value->ip);
-          int len=strlen(fmt_rule)+strlen(argv[2])+strlen(con_value->username)+strlen(con_value->groupname)+strlen(con_value->description);
+          int len=strlen(fmt_rule)+strlen(argv[2])+strlen(cleanvalue->username)+strlen(cleanvalue->groupname)+strlen(cleanvalue->description);
           char rules_item[len];
-          sprintf(rules_item,fmt_rule,argv[2],con_value->groupname,con_value->username,con_value->description);
+          sprintf(rules_item,fmt_rule,argv[2],cleanvalue->groupname,cleanvalue->username,cleanvalue->description);
           ldap_plugin_run_system(IPTABLE_DELETE_ROLE,"FORWARD",rules_item);
-          // free(con_value);
+          free(cleanvalue);
+          LOGINFO("Client [%s] is disconnect.IP [%s],description [%s] ,current queue %d",
+                  cleanvalue->username,
+                  cleanvalue->ip,
+                  cleanvalue->description,
+                  getVpnQueueLength(ConnVpnQueue_r));
         }
-        LOGINFO("delete---->iptables;");
-        LOGWARNING("groupname:%s ,description name: %s",con_value->groupname,con_value->description);
       }
 
       // char * argv_t[] = {

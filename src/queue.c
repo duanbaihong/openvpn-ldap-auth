@@ -3,7 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <stdbool.h>
+#include "debug.h"
 
 //初始化队列
 bool InitConnVpnQueue(ConnQueue **CQ){
@@ -91,7 +92,9 @@ bool LeaveVpnQueue(ConnQueue *CQ,VpnData **returndata){
 //按IP值取出队列项
 bool ByValueLeaveVpnQueue(ConnQueue *CQ, char *ip, VpnData **returndata)
 {
+    if(!ip) return false;
     if(CQ->front==CQ->rear) return false;
+    LOGINFO("test");
     ConnNode *tmp = CQ->front->next;
     ConnNode *predata=NULL;
     while(tmp)

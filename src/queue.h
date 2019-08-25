@@ -1,5 +1,5 @@
-
 #include <stdbool.h>
+
 // 保存连接信息
 typedef struct VpnData_s
 {
