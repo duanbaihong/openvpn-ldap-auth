@@ -400,7 +400,14 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
           int len=strlen(fmt_rule)+strlen(argv[2])+strlen(argv[3])+strlen(cc->group_name)+strlen(desc);
           char rules_item[len];
           sprintf(rules_item,fmt_rule,argv[2],cc->group_name,argv[3],desc);
+          if(!strcasecmp(argv[1],"update"))
+            ldap_plugin_run_system(IPTABLE_DELETE_ROLE,"FORWARD",rules_item);
           ldap_plugin_run_system(IPTABLE_INSERT_ROLE,"FORWARD",rules_item);
+          LOGINFO("Client [%s] is disconnect.IP [%s],description [%s] ,current queue %d",
+                  con_value->username,
+                  con_value->ip,
+                  con_value->description,
+                  getVpnQueueLength(ConnVpnQueue_r));
         }
       }
       else if(!strcasecmp(argv[1],"delete")) 
@@ -414,16 +421,16 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
           char rules_item[len];
           sprintf(rules_item,fmt_rule,argv[2],cleanvalue->groupname,cleanvalue->username,cleanvalue->description);
           ldap_plugin_run_system(IPTABLE_DELETE_ROLE,"FORWARD",rules_item);
-          free(cleanvalue->ip);
-          free(cleanvalue->username);
-          free(cleanvalue->groupname);
-          free(cleanvalue->description);
-          free(cleanvalue);
           LOGINFO("Client [%s] is disconnect.IP [%s],description [%s] ,current queue %d",
                   cleanvalue->username,
                   cleanvalue->ip,
                   cleanvalue->description,
                   getVpnQueueLength(ConnVpnQueue_r));
+          free(cleanvalue->ip);
+          free(cleanvalue->username);
+          free(cleanvalue->groupname);
+          free(cleanvalue->description);
+          free(cleanvalue);
         }
       }
 
