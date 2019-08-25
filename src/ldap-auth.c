@@ -414,6 +414,10 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
           char rules_item[len];
           sprintf(rules_item,fmt_rule,argv[2],cleanvalue->groupname,cleanvalue->username,cleanvalue->description);
           ldap_plugin_run_system(IPTABLE_DELETE_ROLE,"FORWARD",rules_item);
+          free(cleanvalue->ip);
+          free(cleanvalue->username);
+          free(cleanvalue->groupname);
+          free(cleanvalue->description);
           free(cleanvalue);
           LOGINFO("Client [%s] is disconnect.IP [%s],description [%s] ,current queue %d",
                   cleanvalue->username,
