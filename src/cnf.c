@@ -489,18 +489,17 @@ config_parse_file_new( config_t *c){
       STRDUP_IFNOTSET(p->member_attribute, ldapconfig->keymaps[i].value[0] );
     }else if( !strcasecmp(tname, "GROUP_MAP_FIELD" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
-      if(ldapconfig->keymaps[i].vlen==0)
-      {
-        p->group_map_field[0]=strdup("cn");
-        p->group_map_field[1]=strdup("description");
-      }else{
-        for(int n=0;n<ldapconfig->keymaps[i].vlen;n++){
-          p->group_map_field[n]=strdup(ldapconfig->keymaps[i].value[n]);
-        }
+      for(int n=0;n<ldapconfig->keymaps[i].vlen;n++){
+        p->group_map_field[n]=strdup(ldapconfig->keymaps[i].value[n]);
       }
     }else{
       LOGWARNING("Unrecognized option *%s=%s*", tname, ldapconfig->keymaps[i].value[0]);
     }
+    // 设置默认
+    if(!p->group_map_field[0])
+      p->group_map_field[0]=strdup("cn");
+    if(!p->group_map_field[1])
+        p->group_map_field[1]=strdup("description");
   }
      
 	return rc;
