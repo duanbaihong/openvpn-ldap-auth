@@ -42,7 +42,7 @@ LDAP:
   BIND_DN              : cn=admin,ou=xxxx,dc=xxxx,dc=xx
   BIND_PASS            : xxxxx
   BASE_DN              : dc=iwubida,dc=com
-  USERS_DN             : ou=Users,dc=iwubida,dc=com
+  USERS_DN             : ou=xxxx,dc=xxxxxx,dc=com
   USERS_FILTER         : (uid=%u)
   # USERS_SEARCH_SCOPE   : LDAP_SCOPE_BASE
   # USERS_SEARCH_SCOPE   : LDAP_SCOPE_BASE 、LDAP_SCOPE_ONELEVEL 、LDAP_SCOPE_SUBTREE
