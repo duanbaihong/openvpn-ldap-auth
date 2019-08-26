@@ -3,6 +3,8 @@ Dependencies:
 libldap
 libpthread
 libtool
+libyaml
+iptables
 
 Installation:
 -------------
@@ -32,30 +34,46 @@ Grab the example configuration file: tests/config.conf
 
 %u will be replaced by username
 
-uri=ldap://192.168.9.135
-search_filter=(uid=%u)
-usersdn=ou=users,dc=example,dc=com
-binddn=cn=admin,dc=example,dc=com
-bindpw=secret
-version=3
-#ssl=start_tls
-#tls_reqcert=never
-ssl=off
-groupdn=ou=roles,dc=example,dc=com
-group_search_filter=|(cn=vpn)(cn=sysadmins)
-member_attribute=member
+LDAP:
+  HOST                 : ldap://127.0.0.1:389
+  VERSION              : 3
+  SSL                  : False
+  TIMEOUT              : 30
+  BIND_DN              : cn=admin,ou=xxxx,dc=xxxx,dc=xx
+  BIND_PASS            : xxxxx
+  BASE_DN              : dc=iwubida,dc=com
+  USERS_DN             : ou=Users,dc=iwubida,dc=com
+  USERS_FILTER         : (uid=%u)
+  # USERS_SEARCH_SCOPE   : LDAP_SCOPE_BASE
+  # USERS_SEARCH_SCOPE   : LDAP_SCOPE_BASE 、LDAP_SCOPE_ONELEVEL 、LDAP_SCOPE_SUBTREE
+  GROUP_DN             : ou=OpenVPN,ou=Groups,dc=iwubida,dc=com
+  GROUP_FILTER         : (|(objectclass=groupOfNames)(objectclass=groupOfUniqueNames)(objectclass=posixGroup))
+  GROUP_MEMBER_ATTR    : uniqueMember
+  GROUP_FIELD          : 
+    - cn
+    - description
 
-Default values are:
-uri=ldap://localhost
-usersdn=ou=users,dc=example,dc=com
-search_filter=(uid=%u)
-ssl=off
+# 策略定义 源IP不用添加，系统自动添加
+IPTABLERULES:
+  vpn-admin: '-p all -j ACCEPT'
+  vpn-development: 
+      - '-p tcp -m tcp -d 172.18.207.240/32 --dport 3306 -j ACCEPT'
+      - '-p tcp -m tcp -d 172.18.192.5/32 -m multiport --dports 80,22 -j ACCEPT'
+      - '-p tcp -m tcp -d 172.18.51.120/32 -m multiport --dports 80,443,22 -j ACCEPT'
+      - '-p tcp -m tcp -d 172.18.207.0/24 -m multiport --dports 80,443 -j ACCEPT'
+  vpn-developadmin:
+      - '-p tcp -m tcp -d 172.18.16.0/24 --dport 22 -j DROP'
+      - '-p tcp -m tcp -d 172.18.16.0/24 -j ACCEPT'
+      - '-p tcp -m tcp -d 172.18.181.184/32 --dport 3306 -j ACCEPT'
+      - '-p tcp -m tcp -d 172.18.192.5/32 -m multiport --dports 80,22 -j ACCEPT'
+      - '-p tcp -m tcp -d 172.18.51.120/32 -m multiport --dports 80,443,22 -j ACCEPT'
+      - '-p tcp -m tcp -d 172.18.207.0/24 -m multiport --dports 80,443,3306,6379,8500 -j ACCEPT'
+  vpn-common:
+      - '-p tcp -m tcp -d 172.18.192.5/32 -m multiport --dports 80,22 -j ACCEPT'
+      - '-p tcp -m tcp -d 172.18.51.120/32 -m multiport --dports 80,443,22 -j ACCEPT'
+  vpn-test:
+      - '-p tcp -m tcp -d 172.18.16.0/24 -m multiport --dports 8500,3306,6379,80,443 -j ACCEPT'
+      - '-p tcp -m tcp -d 172.18.51.120/32 -m multiport --dports 80,443,22 -j ACCEPT'
+      - '-p tcp -m tcp -d 172.18.207.240/32 --dport 3306 -j ACCEPT'
 
-
-In your openvpn config add:
-plugin /etc/openvpn/ldap-auth/libopenvpn-ldap-auth.so -c /etc/openvpn/ldap-auth/ldap-auth.conf
-also, setting:
-tmp-dir /dev/shm
-
-will help in case you do not run openvpn as root
 
