@@ -1,3 +1,10 @@
+1、基于https://github.com/chantra/openvpn-ldap-auth的插件修改而成，实现基于openldap基于组的uniqueMember认证及策略映射。
+2、基于iptables预配置策略控制用户的相关权限，详情，请参见如下配置参考。
+3、配置文件由原来的conf修改为yaml文件。
+4、解决了原开发者上的线程BUG，内存溢出等问题。
+5、组策略映射默认是基于组属性cn,description为组的描述信息，进行映射。
+6、IPtables的策略配置，如下配置用例，规则默认只取配置，iptables [-I][-D]... INPUT -s xxx.xxx.xxx.xxx/32 后面的一部分。
+
 Dependencies:
 -------------
 libldap
