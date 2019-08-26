@@ -403,7 +403,7 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
           if(!strcasecmp(argv[1],"update"))
             ldap_plugin_run_system(IPTABLE_DELETE_ROLE,"FORWARD",rules_item);
           ldap_plugin_run_system(IPTABLE_INSERT_ROLE,"FORWARD",rules_item);
-          LOGINFO("Client [%s] is disconnect.IP [%s],description [%s] ,current queue %d",
+          LOGINFO("Client [%s] is connected.IP [%s],description [%s] ,current queue %d",
                   con_value->username,
                   con_value->ip,
                   con_value->description,
