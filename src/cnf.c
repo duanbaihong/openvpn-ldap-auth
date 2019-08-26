@@ -676,7 +676,14 @@ static void config_default_iptable_rules(iptable_rules_action_type ctype)
   sprintf(allowVpn,"-p tcp -m tcp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
   ldap_plugin_run_system(ctype,"FORWARD",allowVpn);
   sprintf(allowVpn,"-p udp -m udp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
+  sprintf(allowVpn,"-p udp -m udp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
   ldap_plugin_run_system(ctype,"FORWARD",allowVpn);
+  sprintf(allowVpn,"-s %s -o eth0 -j MASQUERADE",openvpnserverinfo->netaddr);
+  if (ctype == IPTABLE_DELETE_ROLE)
+    ldap_plugin_run_system(IPTABLE_DELETE_MASQUERADE_ROLE, "POSTROUTING", allowVpn);
+  else if (ctype == IPTABLE_INSERT_ROLE)
+    ldap_plugin_run_system(IPTABLE_INSERT_MASQUERADE_ROLE, "POSTROUTING", allowVpn);
+
 }
 void config_uninit_iptable_rules(ldap_config_keyvalue_t *rules)
 {
@@ -718,7 +725,7 @@ void config_init_iptable_rules(ldap_config_keyvalue_t *rules)
         m++;
       }
       // 添加一条返回调用链规则
-      ldap_plugin_run_system(IPTABLE_APPEND_ROLE,rules->keymaps[i].name,"-p all -j RETURN");
+      ldap_plugin_run_system(IPTABLE_APPEND_ROLE,rules->keymaps[i].name,"-p all -j DROP");
       i++;
     }
   } 

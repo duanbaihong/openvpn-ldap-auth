@@ -27,16 +27,16 @@
 #include "types.h"
 #define FREE_IF_NOT_NULL(a) if (a != NULL) la_free (a)
 
-
-
-typedef enum {
-  IPTABLE_CREATE_FILTER=1,
+typedef enum
+{
+  IPTABLE_CREATE_FILTER = 1,
   IPTABLE_EMPTY_FILTER,
   IPTABLE_DELETE_FILTER,
   IPTABLE_APPEND_ROLE,
   IPTABLE_INSERT_ROLE,
-  IPTABLE_DELETE_ROLE
-
+  IPTABLE_INSERT_MASQUERADE_ROLE,
+  IPTABLE_DELETE_ROLE,
+  IPTABLE_DELETE_MASQUERADE_ROLE
 } iptable_rules_action_type;
 
 /* memory allocation */

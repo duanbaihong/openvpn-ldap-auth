@@ -366,6 +366,14 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
       iptables_cmd="/sbin/iptables -D";
       sprintf(cmd_argv,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
       break;
+    case IPTABLE_INSERT_MASQUERADE_ROLE:
+      iptables_cmd="/sbin/iptables -t nat -I";
+      sprintf(cmd_argv,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
+      break;
+    case IPTABLE_DELETE_MASQUERADE_ROLE:
+      iptables_cmd="/sbin/iptables -t nat -D";
+      sprintf(cmd_argv,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
+      break;
     default:
       break;
   }
