@@ -38,7 +38,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#include <openvpn/openvpn-plugin.h>
+#include <openvpn-plugin.h>
 #include <sys/types.h>
 #include <unistd.h>
 

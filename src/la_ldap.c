@@ -21,7 +21,7 @@
 
 #include <ldap.h>
 #include <errno.h>
-#include <openvpn/openvpn-plugin.h>
+#include <openvpn-plugin.h>
 
 #include "debug.h"
 #include "la_ldap.h"

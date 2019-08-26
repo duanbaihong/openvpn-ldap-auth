@@ -48,7 +48,7 @@
 #include <sys/resource.h>
 #endif
 
-#include <openvpn/openvpn-plugin.h>
+#include <openvpn-plugin.h>
 #include <errno.h>
 #include <ldap.h>
 
