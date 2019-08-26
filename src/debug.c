@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include "debug.h"
 #if HAVE_SYSLOG_H
