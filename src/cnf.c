@@ -679,7 +679,7 @@ static void config_default_iptable_rules(iptable_rules_action_type ctype)
   sprintf(allowVpn,"-p udp -m udp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
   sprintf(allowVpn,"-p udp -m udp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
   ldap_plugin_run_system(ctype,"FORWARD",allowVpn);
-  sprintf(allowVpn,"-s %s -o eth0 -j MASQUERADE",openvpnserverinfo->netaddr);
+  sprintf(allowVpn,"-s %s -j MASQUERADE",openvpnserverinfo->netaddr);
   if (ctype == IPTABLE_DELETE_ROLE)
     ldap_plugin_run_system(IPTABLE_DELETE_MASQUERADE_ROLE, "POSTROUTING", allowVpn);
   else if (ctype == IPTABLE_INSERT_ROLE)
