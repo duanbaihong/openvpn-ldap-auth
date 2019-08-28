@@ -125,7 +125,7 @@ void _log( int level, const char *fmt, ... ){
     char strtime[26];
     // strftime(strtime, 26, "%a %b %e %T %Y", &tmp);
     strftime(strtime, sizeof(strtime), "[%Y/%m/%d %T]", &tmp);
-    fprintf( stderr, "%s us=%ld %s\n", strtime,tv.tv_usec, s);
+    fprintf( stderr, "%s us=%-6d %s\n", strtime,tv.tv_usec, s);
   }
 }
 
