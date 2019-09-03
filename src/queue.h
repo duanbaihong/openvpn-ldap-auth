@@ -30,6 +30,8 @@ extern bool DestroyVpnQueue(ConnQueue *CQ);
 extern bool ExistVpnQueue(ConnQueue *CQ,VpnData *value);
 //加入到队列尾
 extern bool JoinVpnQueue(ConnQueue *CQ,VpnData *value);
+//加入到队列前
+extern bool JoinBeforeVpnQueue(ConnQueue *CQ,VpnData *value);
 //更新队列
 extern bool UpdateOrJoinVpnQueue(ConnQueue *CQ,VpnData *value);
 //从队列前面取出队列

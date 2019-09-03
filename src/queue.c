@@ -1,3 +1,4 @@
+#include "utils.h"
 #include "queue.h"
 #include "debug.h"
 #include <stdio.h>
@@ -21,12 +22,16 @@ bool DestroyVpnQueue(ConnQueue *CQ){
     if(!CQ) return false;
     ConnNode *t=CQ->front->next;
     while(t){
-        free(t->data);
-        free(t);
+        check_and_free(t->data->groupname);
+        check_and_free(t->data->ip);
+        check_and_free(t->data->description);
+        check_and_free(t->data->username);
+        check_and_free(t->data);
+        check_and_free(t);
         t=t->next;
     }
-    free(CQ->front);
-    free(CQ);
+    check_and_free(CQ->front);
+    check_and_free(CQ);
     return true;
 }
 //判断队列里是否存在
@@ -57,6 +62,19 @@ bool JoinVpnQueue(ConnQueue *CQ,VpnData *value){
     CQ->rear=p;
     return true;
 }
+//加入到队列前
+bool JoinBeforeVpnQueue(ConnQueue *CQ,VpnData *value){
+    if (ExistVpnQueue(CQ,value)) 
+    {
+        LOGWARNING("already have ip value [%s].",value->ip);
+        return false;
+    }
+    ConnNode *p = (ConnNode *)malloc(sizeof(ConnNode));
+    p->data=value;
+    p->next=CQ->front->next;
+    CQ->front->next=p;
+    return true;
+}
 //更新队列
 bool UpdateOrJoinVpnQueue(ConnQueue *CQ,VpnData *value){
     ConnNode *t=CQ->front->next;
@@ -65,7 +83,7 @@ bool UpdateOrJoinVpnQueue(ConnQueue *CQ,VpnData *value){
     {
         if(!strcmp(t->data->ip,value->ip) /* && !strcmp(t->data->username,username) */ )
         {   
-            free(t->data);
+            check_and_free(t->data);
             t->data=value;
             return true;
         }
@@ -86,7 +104,7 @@ bool LeaveVpnQueue(ConnQueue *CQ,VpnData **returndata){
     (*returndata)=p->data;
     CQ->front->next=p->next;
     if(p->next==NULL) CQ->rear=CQ->front;
-    free(p);
+    check_and_free(p);
     return true;
 }
 //按IP值取出队列项
@@ -118,7 +136,7 @@ bool ByValueLeaveVpnQueue(ConnQueue *CQ, char *ip, VpnData **returndata)
             }else{ //在队列中
                  predata->next=tmp->next;
             }
-            free(tmp);
+            check_and_free(tmp);
             return true;
         }
         else

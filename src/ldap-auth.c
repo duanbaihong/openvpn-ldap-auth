@@ -385,7 +385,7 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
     LOGDEBUG("PLUGIN_LEARN_ADDRESS:%s %s", argv[1],argv[2]);
     if(string_array_len(argv)>1){
       char *fmt_rule="-p all -s %s -j %s -m comment --comment 'User [%s]=>[%s]'";
-      if(!strcasecmp(argv[1],"add") || !strcasecmp(argv[1],"update")) 
+      if(!strcasecmp(argv[1],"add")) 
       {
         if(argv[2]!=NULL && argv[3]!=NULL && cc->group_name!=NULL )
         {
@@ -395,20 +395,60 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
           con_value->username=strdup((char *)argv[3]);
           con_value->groupname=strdup(cc->group_name);
           con_value->description=strdup(desc);
-          if(UpdateOrJoinVpnQueue(ConnVpnQueue_r,con_value))
-            LOGINFO("Join queue success %s %s to group %s",argv[2],argv[3],cc->group_name);
-          int len=strlen(fmt_rule)+strlen(argv[2])+strlen(argv[3])+strlen(cc->group_name)+strlen(desc);
-          char rules_item[len];
-          sprintf(rules_item,fmt_rule,argv[2],cc->group_name,argv[3],desc);
-          if(!strcasecmp(argv[1],"update"))
-            ldap_plugin_run_system(IPTABLE_DELETE_ROLE,"FORWARD",rules_item);
-          ldap_plugin_run_system(IPTABLE_INSERT_ROLE,"FORWARD",rules_item);
-          LOGINFO("Client [%s] is connected.IP [%s],description [%s] ,current queue %d",
-                  con_value->username,
-                  con_value->ip,
-                  con_value->description,
-                  getVpnQueueLength(ConnVpnQueue_r));
+          if(JoinVpnQueue(ConnVpnQueue_r,con_value))
+          {
+            LOGINFO("Join queue success %s %s to group %s",con_value->ip,con_value->username,con_value->groupname);
+            int len=strlen(fmt_rule)+strlen(con_value->ip)+strlen(con_value->username)+strlen(con_value->groupname)+strlen(desc);
+            char rules_item[len];
+            sprintf(rules_item,fmt_rule,con_value->ip,cc->group_name,con_value->username,desc);
+            ldap_plugin_run_system(IPTABLE_INSERT_ROLE,"FORWARD",rules_item);
+            LOGINFO("Client [%s] is connected.IP [%s],description [%s] ,current queue %d",
+                    con_value->username,
+                    con_value->ip,
+                    con_value->description,
+                    getVpnQueueLength(ConnVpnQueue_r));
+          }else
+          {
+            LOGERROR("Join queue error %s %s to group %s",con_value->ip,con_value->username,con_value->groupname);
+          }
         }
+      }
+      else if(!strcasecmp(argv[1],"update"))
+      {
+        VpnData *old_value,*new_value;
+        char *ip = (char *)argv[2];
+        // 取出原数据
+        if(ByValueLeaveVpnQueue(ConnVpnQueue_r,ip,&old_value))
+        {
+          int len=strlen(fmt_rule)+strlen(ip)+strlen(old_value->username)+strlen(old_value->groupname)+strlen(old_value->description);
+          char rules_item[len];
+          sprintf(rules_item,fmt_rule,ip,old_value->groupname,old_value->username,old_value->description);
+          ldap_plugin_run_system(IPTABLE_DELETE_ROLE,"FORWARD",rules_item);
+        }
+        // 更新新数据
+        new_value=malloc(sizeof(VpnData));
+        char *desc=cc->group_description!=NULL?cc->group_description:"\0";
+        new_value->ip=strdup(ip);
+        new_value->username=strdup((char *)argv[3]);
+        new_value->groupname=strdup(cc->group_name);
+        new_value->description=strdup(desc);
+        if(JoinVpnQueue(ConnVpnQueue_r,new_value))
+        {
+          LOGINFO("Join queue success %s %s to group %s",new_value->ip,new_value->username,new_value->groupname);
+          int len=strlen(fmt_rule)+strlen(new_value->ip)+strlen(new_value->username)+strlen(new_value->groupname)+strlen(desc);
+          char rules_add_item[len];
+          sprintf(rules_add_item,fmt_rule,new_value->ip,cc->group_name,new_value->username,desc);
+          ldap_plugin_run_system(IPTABLE_INSERT_ROLE,"FORWARD",rules_add_item);
+        }else
+        {
+          LOGERROR("Join queue error %s %s to group %s",new_value->ip,new_value->username,new_value->groupname);
+        }
+        LOGINFO("Client [%s] is connected.IP [%s],description [%s] ,current queue %d",
+                    new_value->username,
+                    new_value->ip,
+                    new_value->description,
+                    getVpnQueueLength(ConnVpnQueue_r));
+        
       }
       else if(!strcasecmp(argv[1],"delete")) 
       {
