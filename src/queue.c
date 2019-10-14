@@ -15,12 +15,14 @@ bool InitConnVpnQueue(ConnQueue **CQ){
     if(NULL==pConnNode) return false;
     (*CQ)->front=(*CQ)->rear=pConnNode;
     (*CQ)->front->next=NULL;
+    (*CQ)->len=0;
     return true;
 }
 // 销毁队列
 bool DestroyVpnQueue(ConnQueue *CQ){
     if(!CQ) return false;
     ConnNode *t=CQ->front->next;
+    CQ->len=0;
     while(t){
         check_and_free(t->data->groupname);
         check_and_free(t->data->ip);
@@ -60,6 +62,7 @@ bool JoinVpnQueue(ConnQueue *CQ,VpnData *value){
     p->next=NULL;
     CQ->rear->next=p;
     CQ->rear=p;
+    CQ->len++;
     return true;
 }
 //加入到队列前
@@ -73,6 +76,7 @@ bool JoinBeforeVpnQueue(ConnQueue *CQ,VpnData *value){
     p->data=value;
     p->next=CQ->front->next;
     CQ->front->next=p;
+    CQ->len++;
     return true;
 }
 //更新队列
@@ -95,6 +99,7 @@ bool UpdateOrJoinVpnQueue(ConnQueue *CQ,VpnData *value){
     p->next=NULL;
     CQ->rear->next=p;
     CQ->rear=p;
+    CQ->len++;
     return true;
 }
 //从队列前面取出队列
@@ -104,6 +109,7 @@ bool LeaveVpnQueue(ConnQueue *CQ,VpnData **returndata){
     (*returndata)=p->data;
     CQ->front->next=p->next;
     if(p->next==NULL) CQ->rear=CQ->front;
+    CQ->len--;
     check_and_free(p);
     return true;
 }
@@ -125,6 +131,7 @@ bool ByValueLeaveVpnQueue(ConnQueue *CQ, char *ip, VpnData **returndata)
                 {
                     CQ->front=CQ->rear=(ConnNode *)malloc(sizeof(ConnNode));
                     CQ->front->next=NULL;
+                    CQ->len--;
                     return 1;
                 }
                 else
@@ -136,6 +143,7 @@ bool ByValueLeaveVpnQueue(ConnQueue *CQ, char *ip, VpnData **returndata)
             }else{ //在队列中
                  predata->next=tmp->next;
             }
+            CQ->len--;
             check_and_free(tmp);
             return true;
         }
@@ -149,11 +157,11 @@ bool ByValueLeaveVpnQueue(ConnQueue *CQ, char *ip, VpnData **returndata)
 }
 //队列元素个数
 int getVpnQueueLength(ConnQueue *CQ){
-    int length=0;
-    ConnNode *p=CQ->front;
-    while(p!=CQ->rear){
-        p=p->next;
-        length++;
-    }
-    return length;
+    // int length=0;
+    // ConnNode *p=CQ->front;
+    // while(p!=CQ->rear){
+    //     p=p->next;
+    //     length++;
+    // }
+    return CQ->len;
 }

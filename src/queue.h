@@ -17,6 +17,7 @@ typedef struct ConnNode_s{
 typedef struct ConnQueue_s{
     ConnNode *front;
     ConnNode *rear;
+    unsigned int len;
 }ConnQueue;
 
 // 定义全局队列
