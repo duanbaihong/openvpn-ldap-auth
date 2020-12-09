@@ -637,6 +637,8 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
       rc = ldap_binddn( ldap, userdn, auth_context->password );
       if( rc != LDAP_SUCCESS ){
         LOGERROR( "rebinding: return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
+        res = OPENVPN_PLUGIN_FUNC_ERROR;
+        goto la_ldap_handle_authentication_free;
       }else{
         /* success, let set our return value to SUCCESS */
         if( DOINFO( l->verb ) )
