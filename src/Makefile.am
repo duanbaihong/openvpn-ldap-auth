@@ -4,14 +4,14 @@
 lib_LTLIBRARIES = libopenvpn-ldap-auth.la
 
 auth_ldap_SOURCES = utils.h utils.c \
-							cnf.h cnf.c \
-							list.h list.c \
-							queue.h queue.c \
-							action.h action.c \
-							la_ldap.h la_ldap.c \
-							ldap_profile.h ldap_profile.c \
-							client_context.h client_context.c \
-							debug.h debug.c
+					cnf.h cnf.c \
+					list.h list.c \
+					queue.h queue.c \
+					action.h action.c \
+					la_ldap.h la_ldap.c \
+					ldap_profile.h ldap_profile.c \
+					client_context.h client_context.c \
+					debug.h debug.c
 
 #openvpn_ldap_rules_SOURCES = openvpn-ldap-rules.c \
 #					$(auth_ldap_SOURCES)

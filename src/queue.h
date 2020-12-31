@@ -1,12 +1,18 @@
 #include <stdbool.h>
 
+
+struct vpn_conn_groups_t 
+{
+    char  *groupname;
+    char  *description;
+}VpnConnGroups;
+
 // 保存连接信息
 typedef struct VpnData_s
 {
     char *ip;
     char *username;
-    char *groupname;
-    char *description;
+    struct vpn_conn_groups_t groups[0];
 } VpnData;
 
 typedef struct ConnNode_s{
@@ -25,6 +31,8 @@ ConnQueue *ConnVpnQueue_r;
 // dbh888 extra 2019-08-23
 
 extern bool InitConnVpnQueue(ConnQueue **CQ);
+//释放vpndata内存空间
+bool FreeConnVPNDataMem(VpnData *vpndata);
 // 销毁队列
 extern bool DestroyVpnQueue(ConnQueue *CQ);
 //判断队列里是否存在

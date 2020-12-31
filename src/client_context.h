@@ -30,12 +30,15 @@
 typedef struct client_context {
   char  *user_id;
   char  *user_dn;
-  char  *group_name;
-  char  *group_description;
   profile_config_t *profile;
 #ifdef ENABLE_LDAPUSERCONF
   struct ldap_account *ldap_account;
 #endif
+  struct client_ldap_groups 
+  {
+    char  *group_name;
+    char  *group_description;
+  } *groups[];
 } client_context_t;
 
 

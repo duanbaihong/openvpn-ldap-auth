@@ -207,7 +207,7 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
     goto error;
   }
   // 初始配置文件信息
-  config_parse_file_new( context->config );
+  config_parse_file( context->config );
   /**
    * Set default config values
    */
@@ -397,12 +397,12 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
           con_value->description=strdup(desc);
           if(JoinVpnQueue(ConnVpnQueue_r,con_value))
           {
-            LOGINFO("Join queue success %s %s to group %s",con_value->ip,con_value->username,con_value->groupname);
+            LOGINFO("Join queue success %s %s to groups %s",con_value->ip,con_value->username,con_value->groupname);
             int len=strlen(fmt_rule)+strlen(con_value->ip)+strlen(con_value->username)+strlen(con_value->groupname)+strlen(desc);
             char rules_item[len];
             sprintf(rules_item,fmt_rule,con_value->ip,cc->group_name,con_value->username,desc);
             ldap_plugin_run_system(IPTABLE_INSERT_ROLE,"FORWARD",rules_item);
-            LOGINFO("Client [%s] is connected.IP [%s],description [%s] ,current queue %d",
+            LOGINFO("Client [%s] is connected.IP [%s],vpn groups [%s] ,current queue %d",
                     con_value->username,
                     con_value->ip,
                     con_value->description,
@@ -466,31 +466,10 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
                   cleanvalue->ip,
                   cleanvalue->description,
                   getVpnQueueLength(ConnVpnQueue_r));
-          free(cleanvalue->ip);
-          free(cleanvalue->username);
-          free(cleanvalue->groupname);
-          free(cleanvalue->description);
-          free(cleanvalue);
+          FreeConnVPNDataMem(cleanvalue);
         }
       }
 
-      // char * argv_t[] = {
-      //     "/usr/bin/sudo",
-      //     "-u",
-      //     "root",
-      //     "/sbin/iptables",
-      //     action_type,
-      //     "FORWARD",
-      //     "-p",
-      //     "all",
-      //     "-s",
-      //     (char*)argv[2],
-      //     "-j",
-      //     cc->group_name,
-      //     NULL};
-      // if(!strcasecmp(argv[1],"delete")) argv_t[9]=NULL;
-      // char * envp_t[]={"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",NULL};
-      // ldap_plugin_execve("/usr/bin/sudo",argv_t,envp_t);
     }
     return OPENVPN_PLUGIN_FUNC_SUCCESS;
   }

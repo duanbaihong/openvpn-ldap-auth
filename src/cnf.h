@@ -122,9 +122,6 @@ ldap_config_keyvalue_t *ldapconfig;
 ldap_openvpn_server_info *openvpnserverinfo;
 
 
-
-extern int config_parse_file( const char *filename, config_t *c );
-
 extern config_t *config_new( void );
 extern config_t *config_dup( config_t *c );
 extern void config_free( config_t *c );
@@ -137,7 +134,7 @@ extern int config_is_redirect_gw_enabled_for_profile( profile_config_t *p );
 
 // yaml config 
 
-extern int  config_parse_file_new( config_t *c );
+extern int  config_parse_file( config_t *c );
 extern void config_ldap_printf(ldap_config_keyvalue_t *rules);
 extern void config_iptables_printf(ldap_config_keyvalue_t *rules);
 extern void config_ldap_plugin_free(ldap_config_keyvalue_t *rules);

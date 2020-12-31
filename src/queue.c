@@ -7,6 +7,20 @@
 #include <stdbool.h>
 #include "debug.h"
 
+//释放vpndata内存空间
+bool FreeConnVPNDataMem(VpnData *vpndata)
+{
+    check_and_free(vpndata->ip);
+    check_and_free(vpndata->username);
+    for(i=0;vpndata->groups[i]!=NULL;i++)
+    {
+        check_and_free(vpndata->groups[i]->groupname);
+        check_and_free(vpndata->groups[i]->description);
+        delete [] vpndata->groups[i];
+    }
+    check_and_free(vpndata);
+    return true;
+}
 //初始化队列
 bool InitConnVpnQueue(ConnQueue **CQ){
     (*CQ)=malloc(sizeof(ConnQueue));
@@ -24,11 +38,7 @@ bool DestroyVpnQueue(ConnQueue *CQ){
     ConnNode *t=CQ->front->next;
     CQ->len=0;
     while(t){
-        check_and_free(t->data->groupname);
-        check_and_free(t->data->ip);
-        check_and_free(t->data->description);
-        check_and_free(t->data->username);
-        check_and_free(t->data);
+        FreeConnVPNDataMem(t->data)
         check_and_free(t);
         t=t->next;
     }

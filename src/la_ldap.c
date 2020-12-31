@@ -555,32 +555,34 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
     LDAPMessage *entry;
     struct berval **vals;
     char *attr;
-
+    int group_num=0;
     for (entry = ldap_first_entry(ldap, result); entry != NULL; entry = ldap_next_entry(ldap, entry))
     {
       BerElement *ber=NULL;
       for(attr=ldap_first_attribute(ldap,entry,&ber);attr!=NULL;attr=ldap_next_attribute(ldap,entry,ber))
       {
-        vals=ldap_get_values_len(ldap,entry,attr);
-        if(vals!=NULL){
-          for(int k=0;vals[k]!=NULL;k++){
-            int g_field=ldap_array_len(cc->profile->group_map_field);
-            if(g_field>0){
-              if(!strcasecmp(attr,cc->profile->group_map_field[0]))
+        for(idx=0;cc->profile->group_map_field[idx]!=NULL;idx++){
+          if(!strcasecmp(attr,cc->profile->group_map_field[idx]))
+          {
+            vals=ldap_get_values_len(ldap,entry,attr);
+            if(vals!=NULL)
+            {
+              if(!strcasecmp(attr,"cn"))
               {
-                cc->group_name=strdup(vals[k]->bv_val);
+                cc->groups[group_num]->group_name=strdup(vals[0]->bv_val);
               }
-              if(g_field>1 && !strcasecmp(attr,"description"))
+              if(!strcasecmp(attr,"description"))
               {
-                cc->group_description = strdup(vals[k]->bv_val);
+                cc->groups[group_num]->group_description = strdup(vals[0]->bv_val);
               }
+              LOGDEBUG("Get profile %s value length %d, char length: %s",attr,ldap_array_len(vals),vals[0]->bv_val);
             }
-            LOGDEBUG("char lenght %d: %s:%s",vals[k]->bv_len,attr,vals[k]->bv_val );
+            ldap_value_free_len(vals);
           }
-          ldap_value_free_len(vals);
         }
         ldap_memfree( attr );
       }
+      group_num++;
       if(ber != NULL) ber_free(ber, 0);
     }
     ldap_msgfree(entry);
