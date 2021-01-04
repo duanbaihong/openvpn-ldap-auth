@@ -64,6 +64,7 @@
 #include "la_ldap.h"
 #include "client_context.h"
 #include "ldap_profile.h"
+#include "la_iptables.h"
 
 #define DFT_REDIRECT_GATEWAY_FLAGS "def1 bypass-dhcp"
 #define OCONFIG "/etc/openvpn/openvpn-ldap.yaml"
@@ -384,32 +385,25 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
     client_context_t *cc = per_client_context;
     LOGDEBUG("PLUGIN_LEARN_ADDRESS:%s %s", argv[1],argv[2]);
     if(string_array_len(argv)>1){
-      char *fmt_rule="-p all -s %s -j %s -m comment --comment 'User [%s]=>[%s]'";
       if(!strcasecmp(argv[1],"add")) 
       {
-        if(argv[2]!=NULL && argv[3]!=NULL && cc->group_name!=NULL )
+        if(argv[2]!=NULL && argv[3]!=NULL && cc->group_len>0 )
         {
-          char *desc=cc->group_description!=NULL?cc->group_description:"\0";
           VpnData *con_value=malloc(sizeof(VpnData));
           con_value->ip=strdup((char *)argv[2]);
           con_value->username=strdup((char *)argv[3]);
-          con_value->groupname=strdup(cc->group_name);
-          con_value->description=strdup(desc);
+          con_value->group_len=cc->group_len;
+          con_value->groups=cc->groups;
           if(JoinVpnQueue(ConnVpnQueue_r,con_value))
           {
-            LOGINFO("Join queue success %s %s to groups %s",con_value->ip,con_value->username,con_value->groupname);
-            int len=strlen(fmt_rule)+strlen(con_value->ip)+strlen(con_value->username)+strlen(con_value->groupname)+strlen(desc);
-            char rules_item[len];
-            sprintf(rules_item,fmt_rule,con_value->ip,cc->group_name,con_value->username,desc);
-            ldap_plugin_run_system(IPTABLE_INSERT_ROLE,"FORWARD",rules_item);
-            LOGINFO("Client [%s] is connected.IP [%s],vpn groups [%s] ,current queue %d",
-                    con_value->username,
-                    con_value->ip,
-                    con_value->description,
-                    getVpnQueueLength(ConnVpnQueue_r));
+            LOGINFO("Join the connection data to the queue successfully, current queue num %d, current ip [%s] ,username [%s] !",
+                getVpnQueueLength(ConnVpnQueue_r),
+                con_value->ip,
+                con_value->username);
+            la_learn_roles_add(con_value);
           }else
           {
-            LOGERROR("Join queue error %s %s to group %s",con_value->ip,con_value->username,con_value->groupname);
+            LOGERROR("Join the connection data to the queue error, current ip [%s] ,username [%s]",con_value->ip,con_value->username);
           }
         }
       }
@@ -420,35 +414,25 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         // 取出原数据
         if(ByValueLeaveVpnQueue(ConnVpnQueue_r,ip,&old_value))
         {
-          int len=strlen(fmt_rule)+strlen(ip)+strlen(old_value->username)+strlen(old_value->groupname)+strlen(old_value->description);
-          char rules_item[len];
-          sprintf(rules_item,fmt_rule,ip,old_value->groupname,old_value->username,old_value->description);
-          ldap_plugin_run_system(IPTABLE_DELETE_ROLE,"FORWARD",rules_item);
+          la_learn_roles_delete(old_value);
         }
         // 更新新数据
         new_value=malloc(sizeof(VpnData));
-        char *desc=cc->group_description!=NULL?cc->group_description:"\0";
         new_value->ip=strdup(ip);
         new_value->username=strdup((char *)argv[3]);
-        new_value->groupname=strdup(cc->group_name);
-        new_value->description=strdup(desc);
+        new_value->group_len=cc->group_len;
+        new_value->groups=cc->groups;
         if(JoinVpnQueue(ConnVpnQueue_r,new_value))
         {
-          LOGINFO("Join queue success %s %s to group %s",new_value->ip,new_value->username,new_value->groupname);
-          int len=strlen(fmt_rule)+strlen(new_value->ip)+strlen(new_value->username)+strlen(new_value->groupname)+strlen(desc);
-          char rules_add_item[len];
-          sprintf(rules_add_item,fmt_rule,new_value->ip,cc->group_name,new_value->username,desc);
-          ldap_plugin_run_system(IPTABLE_INSERT_ROLE,"FORWARD",rules_add_item);
+          LOGINFO("Join the connection data to the queue successfully, current queue num %d, current ip [%s] ,username [%s] !",
+                getVpnQueueLength(ConnVpnQueue_r),
+                con_value->ip,
+                con_value->username);
+          la_learn_roles_add(new_value);
         }else
         {
-          LOGERROR("Join queue error %s %s to group %s",new_value->ip,new_value->username,new_value->groupname);
+          LOGERROR("Join the connection data to the queue error, current ip [%s] ,username [%s]",con_value->ip,con_value->username);
         }
-        LOGINFO("Client [%s] is connected.IP [%s],description [%s] ,current queue %d",
-                    new_value->username,
-                    new_value->ip,
-                    new_value->description,
-                    getVpnQueueLength(ConnVpnQueue_r));
-        
       }
       else if(!strcasecmp(argv[1],"delete")) 
       {
@@ -457,15 +441,11 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         char *ip = (char *)argv[2];
         if(ByValueLeaveVpnQueue(ConnVpnQueue_r,ip,&cleanvalue))
         {
-          int len=strlen(fmt_rule)+strlen(argv[2])+strlen(cleanvalue->username)+strlen(cleanvalue->groupname)+strlen(cleanvalue->description);
-          char rules_item[len];
-          sprintf(rules_item,fmt_rule,argv[2],cleanvalue->groupname,cleanvalue->username,cleanvalue->description);
-          ldap_plugin_run_system(IPTABLE_DELETE_ROLE,"FORWARD",rules_item);
-          LOGINFO("Client [%s] is disconnect.IP [%s],description [%s] ,current queue %d",
+          LOGINFO("Client [%s] is disconnect.IP [%s] ,current queue %d.",
                   cleanvalue->username,
                   cleanvalue->ip,
-                  cleanvalue->description,
                   getVpnQueueLength(ConnVpnQueue_r));
+          la_learn_roles_delete(cleanvalue);
           FreeConnVPNDataMem(cleanvalue);
         }
       }

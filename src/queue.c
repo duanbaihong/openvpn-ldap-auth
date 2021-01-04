@@ -12,12 +12,8 @@ bool FreeConnVPNDataMem(VpnData *vpndata)
 {
     check_and_free(vpndata->ip);
     check_and_free(vpndata->username);
-    for(i=0;vpndata->groups[i]!=NULL;i++)
-    {
-        check_and_free(vpndata->groups[i]->groupname);
-        check_and_free(vpndata->groups[i]->description);
-        delete [] vpndata->groups[i];
-    }
+    vpndata->group_len=0;
+    vpndata->groups=NULL;
     check_and_free(vpndata);
     return true;
 }

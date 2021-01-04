@@ -26,7 +26,6 @@
 #include "config.h"
 #include "cnf.h"
 
-
 typedef struct client_context {
   char  *user_id;
   char  *user_dn;
@@ -34,11 +33,8 @@ typedef struct client_context {
 #ifdef ENABLE_LDAPUSERCONF
   struct ldap_account *ldap_account;
 #endif
-  struct client_ldap_groups 
-  {
-    char  *group_name;
-    char  *group_description;
-  } *groups[];
+  int  group_len;
+  struct vpn_conn_groups_t *groups;
 } client_context_t;
 
 

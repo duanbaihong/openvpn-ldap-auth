@@ -37,8 +37,8 @@
 
 typedef struct ldap_profile
 {
-  time_t               start_date;
-  time_t               end_date;
+  time_t              start_date;
+  time_t              end_date;
   ternary_t           pf_client_default_accept;
   ternary_t           pf_subnet_default_accept;
   char                *pf_client_rules;

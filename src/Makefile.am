@@ -10,6 +10,7 @@ auth_ldap_SOURCES = utils.h utils.c \
 					action.h action.c \
 					la_ldap.h la_ldap.c \
 					ldap_profile.h ldap_profile.c \
+					la_iptables.h la_iptables.c \
 					client_context.h client_context.c \
 					debug.h debug.c
 

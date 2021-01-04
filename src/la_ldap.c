@@ -556,6 +556,8 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
     struct berval **vals;
     char *attr;
     int group_num=0;
+    cc->group_len=nbrow;
+    cc->groups=la_malloc(sizeof(struct vpn_conn_groups_t)*nbrow);
     for (entry = ldap_first_entry(ldap, result); entry != NULL; entry = ldap_next_entry(ldap, entry))
     {
       BerElement *ber=NULL;
@@ -569,11 +571,11 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
             {
               if(!strcasecmp(attr,"cn"))
               {
-                cc->groups[group_num]->group_name=strdup(vals[0]->bv_val);
+                cc->groups[group_num].groupname=strdup(vals[0]->bv_val);
               }
               if(!strcasecmp(attr,"description"))
               {
-                cc->groups[group_num]->group_description = strdup(vals[0]->bv_val);
+                cc->groups[group_num].description = strdup(vals[0]->bv_val);
               }
               LOGDEBUG("Get profile %s value length %d, char length: %s",attr,ldap_array_len(vals),vals[0]->bv_val);
             }
@@ -585,6 +587,7 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
       group_num++;
       if(ber != NULL) ber_free(ber, 0);
     }
+    
     ldap_msgfree(entry);
   }
   /* free the returned result */
