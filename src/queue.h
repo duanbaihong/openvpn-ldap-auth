@@ -1,6 +1,6 @@
 #include <stdbool.h>
 
-struct vpn_conn_groups_t 
+typedef struct Vpn_Conn_Groups_t 
 {
     char  *groupname;
     char  *description;
@@ -12,8 +12,8 @@ typedef struct VpnData_s
     char *ip;
     char *username;
     int  group_len;
-    struct vpn_conn_groups_t *groups;
-} VpnData;
+    VpnConnGroups *groups;
+}VpnData;
 
 typedef struct ConnNode_s{
     VpnData *data;

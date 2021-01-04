@@ -25,6 +25,7 @@
 
 #include "debug.h"
 #include "la_ldap.h"
+#include "queue.h"
 #include "client_context.h"
 #include "config.h"
 
@@ -553,19 +554,19 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
       res = 0;
     }
     LDAPMessage *entry;
-    struct berval **vals;
     char *attr;
     int group_num=0;
     cc->group_len=nbrow;
-    cc->groups=la_malloc(sizeof(struct vpn_conn_groups_t)*nbrow);
+    cc->groups=la_malloc(sizeof(VpnConnGroups)*nbrow);
     for (entry = ldap_first_entry(ldap, result); entry != NULL; entry = ldap_next_entry(ldap, entry))
     {
       BerElement *ber=NULL;
       for(attr=ldap_first_attribute(ldap,entry,&ber);attr!=NULL;attr=ldap_next_attribute(ldap,entry,ber))
       {
-        for(idx=0;cc->profile->group_map_field[idx]!=NULL;idx++){
+        for(int idx=0;cc->profile->group_map_field[idx]!=NULL;idx++){
           if(!strcasecmp(attr,cc->profile->group_map_field[idx]))
           {
+            struct berval **vals;
             vals=ldap_get_values_len(ldap,entry,attr);
             if(vals!=NULL)
             {
@@ -577,7 +578,7 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
               {
                 cc->groups[group_num].description = strdup(vals[0]->bv_val);
               }
-              LOGDEBUG("Get profile %s value length %d, char length: %s",attr,ldap_array_len(vals),vals[0]->bv_val);
+              LOGDEBUG("Get profile %s value length %d, char length: %s",attr,vals[0]->bv_len,vals[0]->bv_val);
             }
             ldap_value_free_len(vals);
           }

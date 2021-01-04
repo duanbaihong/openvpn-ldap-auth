@@ -34,7 +34,7 @@ bool DestroyVpnQueue(ConnQueue *CQ){
     ConnNode *t=CQ->front->next;
     CQ->len=0;
     while(t){
-        FreeConnVPNDataMem(t->data)
+        FreeConnVPNDataMem(t->data);
         check_and_free(t);
         t=t->next;
     }

@@ -106,7 +106,7 @@ main( int argc, char **argv){
   if (optind < argc){
     username = strdup(argv[optind]);
   }
-  if( configfile ) config_parse_file( configfile, config );
+  if( configfile ) config_parse_file( config );
   config_set_default( config );
   config_dump( config );
 	rc = ldap_initialize(&ldap, config->ldap->uri);

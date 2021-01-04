@@ -1,8 +1,19 @@
-#include <stdbool.h>
-#include "queue.h"
+#include "utils.h"
+#include <stdio.h>
+#include <string.h>
+// #include <fcntl.h>
+// #include <termios.h>
+// #include <stdarg.h>
+#include "debug.h"
+// #include <sys/types.h>
+// #include <sys/wait.h>
+// #include <unistd.h>
+#include <errno.h> 
+#include <queue.h>
 #include "client_context.h"
+#include "la_iptables.h"
 
-const char *IPT_RULES_FMT="-p all -s %s -j %s -m comment --comment 'User [%s]=>[%s]'"
+const char *IPT_RULES_FMT="-p all -s %s -j %s -m comment --comment 'User [%s]=>[%s]'";
 
 // 添加规则
 int la_learn_roles_add(VpnData *vdata)
@@ -20,7 +31,7 @@ int la_learn_roles_add(VpnData *vdata)
             vdata->ip,
             vdata->groups[i].groupname);
   }
-  return ret
+  return ret;
 }
 
 // 删除规则
@@ -29,9 +40,9 @@ int la_learn_roles_delete(VpnData *vdata)
   int ret=-1;
   for(int i=0;i<vdata->group_len;i++)
   {
-    int len=strlen(IPT_RULES_FMT)+strlen(ip)+strlen(vdata->username)+strlen(vdata->groups[i].groupname)+strlen(vdata->groups[i].description);
+    int len=strlen(IPT_RULES_FMT)+strlen(vdata->ip)+strlen(vdata->username)+strlen(vdata->groups[i].groupname)+strlen(vdata->groups[i].description);
     char rules_item[len];
-    sprintf(rules_item,IPT_RULES_FMT,ip,vdata->groups[i].groupname,vdata->username,vdata->groups[i].description);
+    sprintf(rules_item,IPT_RULES_FMT,vdata->ip,vdata->groups[i].groupname,vdata->username,vdata->groups[i].description);
     ret=ldap_plugin_run_system(IPTABLE_DELETE_ROLE,"FORWARD",rules_item);
   }
   return ret;

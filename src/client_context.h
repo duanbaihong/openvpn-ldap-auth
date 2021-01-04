@@ -34,7 +34,7 @@ typedef struct client_context {
   struct ldap_account *ldap_account;
 #endif
   int  group_len;
-  struct vpn_conn_groups_t *groups;
+  struct Vpn_Conn_Groups_t *groups;
 } client_context_t;
 
 

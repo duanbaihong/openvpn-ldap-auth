@@ -54,17 +54,16 @@
 
 #include <pthread.h>
 
-
+#include "queue.h"
 #include "cnf.h"
 #include "utils.h"
 #include "debug.h"
-#include "queue.h"
 #include "action.h"
 #include "list.h"
 #include "la_ldap.h"
+#include "la_iptables.h"
 #include "client_context.h"
 #include "ldap_profile.h"
-#include "la_iptables.h"
 
 #define DFT_REDIRECT_GATEWAY_FLAGS "def1 bypass-dhcp"
 #define OCONFIG "/etc/openvpn/openvpn-ldap.yaml"
@@ -426,12 +425,12 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         {
           LOGINFO("Join the connection data to the queue successfully, current queue num %d, current ip [%s] ,username [%s] !",
                 getVpnQueueLength(ConnVpnQueue_r),
-                con_value->ip,
-                con_value->username);
+                new_value->ip,
+                new_value->username);
           la_learn_roles_add(new_value);
         }else
         {
-          LOGERROR("Join the connection data to the queue error, current ip [%s] ,username [%s]",con_value->ip,con_value->username);
+          LOGERROR("Join the connection data to the queue error, current ip [%s] ,username [%s]",new_value->ip,new_value->username);
         }
       }
       else if(!strcasecmp(argv[1],"delete")) 

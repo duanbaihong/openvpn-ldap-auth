@@ -19,7 +19,6 @@
  *
  */
 
-
 #include "ldap_profile.h"
 
 #ifdef ENABLE_LDAPUSERCONF

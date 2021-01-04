@@ -35,6 +35,8 @@
 
 #include "yaml.h"
 #include <stdbool.h>
+#include "queue.h"
+#include <la_iptables.h>
 
 #define LOGDEBUG_IFSET(a,prefix) if(a) LOGDEBUG( "%s: %s", prefix, a);
 #define STRDUP_IFNOTSET(a,b) if(!a && b) a=strdup(b);
