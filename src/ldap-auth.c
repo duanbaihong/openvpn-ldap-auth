@@ -395,14 +395,14 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
           con_value->groups=cc->groups;
           if(JoinVpnQueue(ConnVpnQueue_r,con_value))
           {
-            LOGINFO("Join the connection data to the queue successfully, current queue num %d, current ip [%s] ,username [%s] !",
-                getVpnQueueLength(ConnVpnQueue_r),
-                con_value->ip,
-                con_value->username);
+            LOGINFO("Join current ip [%s] and username [%s] connection data to the queue successfully, current queue num %d!",
+              con_value->ip,
+              con_value->username,
+              getVpnQueueLength(ConnVpnQueue_r));
             la_learn_roles_add(con_value);
           }else
           {
-            LOGERROR("Join the connection data to the queue error, current ip [%s] ,username [%s]",con_value->ip,con_value->username);
+            LOGERROR("Join current ip [%s] and username [%s] connection data to the queue error!",con_value->ip,con_value->username);
           }
         }
       }
@@ -423,14 +423,14 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         new_value->groups=cc->groups;
         if(JoinVpnQueue(ConnVpnQueue_r,new_value))
         {
-          LOGINFO("Join the connection data to the queue successfully, current queue num %d, current ip [%s] ,username [%s] !",
-                getVpnQueueLength(ConnVpnQueue_r),
-                new_value->ip,
-                new_value->username);
+          LOGINFO("Join current ip [%s] and username [%s] connection data to the queue successfully, current queue num %d!",
+              new_value->ip,
+              new_value->username,
+              getVpnQueueLength(ConnVpnQueue_r));
           la_learn_roles_add(new_value);
         }else
         {
-          LOGERROR("Join the connection data to the queue error, current ip [%s] ,username [%s]",new_value->ip,new_value->username);
+          LOGERROR("Join current ip [%s] and username [%s] connection data to the queue error!",new_value->ip,new_value->username);
         }
       }
       else if(!strcasecmp(argv[1],"delete")) 
@@ -440,12 +440,12 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         char *ip = (char *)argv[2];
         if(ByValueLeaveVpnQueue(ConnVpnQueue_r,ip,&cleanvalue))
         {
+          la_learn_roles_delete(cleanvalue);
+          FreeConnVPNDataMem(cleanvalue);
           LOGINFO("Client [%s] is disconnect.IP [%s] ,current queue %d.",
                   cleanvalue->username,
                   cleanvalue->ip,
                   getVpnQueueLength(ConnVpnQueue_r));
-          la_learn_roles_delete(cleanvalue);
-          FreeConnVPNDataMem(cleanvalue);
         }
       }
 

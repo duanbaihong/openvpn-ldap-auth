@@ -13,7 +13,7 @@ bool FreeConnVPNDataMem(VpnData *vpndata)
     check_and_free(vpndata->ip);
     check_and_free(vpndata->username);
     vpndata->group_len=0;
-    vpndata->groups=NULL;
+    check_and_free(vpndata->groups);
     check_and_free(vpndata);
     return true;
 }
