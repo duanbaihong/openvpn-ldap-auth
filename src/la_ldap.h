@@ -95,4 +95,9 @@ extern int la_ldap_handle_authentication( ldap_context_t *l, action_t *a);
  * return ldap's ld_errno value
  */
 extern int la_ldap_errno( LDAP *ldap );
+// 释放连接内存
+extern int ldap_conn_handle_free(LDAP *ldap, char *userdn);
+// 
+extern int config_load_ldap_groups_profiles(ldap_context_t *l);
+
 #endif /* __LA_LDAP_H__ */

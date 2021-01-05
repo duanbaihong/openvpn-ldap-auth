@@ -41,6 +41,12 @@ typedef struct ldap_conf_t
   } keymaps[IP_RULE_KEYS_BUF];
 } ldap_config_keyvalue_t;
 
+typedef struct ldap_iptable_roles_t
+{
+  int   item_len;
+  char  *role_name;
+  char  **role_item;  
+}LdapIptableRoles;
 
 typedef struct openvpn_server_info
 {
@@ -105,6 +111,9 @@ typedef struct profile_config{
   /* default profiledn for ldap user conf */
   char        *default_profiledn;
 #endif
+  char        *iptable_rules_field;
+  int         iptable_groups_len;
+  LdapIptableRoles        *iptable_rules;
 } profile_config_t;
 
 /**

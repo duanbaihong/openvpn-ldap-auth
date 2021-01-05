@@ -161,6 +161,18 @@ profile_config_free ( profile_config_t *c ){
   check_and_free( c->groupdn );
   check_and_free( c->group_search_filter );
   check_and_free( c->member_attribute );
+  check_and_free( c->iptable_rules_field );
+  for(int s=0;s<c->iptable_groups_len;s++)
+  {
+    check_and_free(c->iptable_rules[s].role_name);
+    for(int t=0;t<c->iptable_rules[s].item_len;t++)
+    {
+      check_and_free(c->iptable_rules[s].role_item[t]);
+    }
+    if(c->iptable_rules[s].item_len>0) check_and_free(c->iptable_rules[s].role_item);
+  }
+  c->iptable_groups_len=0;
+  check_and_free( c->iptable_rules );
   check_and_free( c->default_pf_rules );
   for(int i=0;c->group_map_field[i]!=NULL;i++)
   {
@@ -187,6 +199,7 @@ profile_config_new ( void ){
   if( !c ) return NULL;
   la_memset (c, 0, sizeof( profile_config_t ) );
   c->search_scope = LA_SCOPE_ONELEVEL;
+  c->iptable_rules_field=strdup("iptableRoles");
   return c;
 }
 
@@ -205,6 +218,8 @@ profile_config_dup( const profile_config_t *c ){
   if( c->groupdn ) nc->groupdn = strdup( c->groupdn );
   if( c->group_search_filter ) nc->group_search_filter = strdup( c->group_search_filter );
   if( c->member_attribute ) nc->member_attribute = strdup( c->member_attribute );
+  if( c->iptable_rules_field ) nc->iptable_rules_field = strdup( c->iptable_rules_field );
+  if( c->iptable_groups_len ) nc->iptable_groups_len =c->iptable_groups_len;
   /* PF */
   if( c->default_pf_rules ) nc->default_pf_rules = strdup( c->default_pf_rules );
   nc->enable_pf = c->enable_pf;
@@ -364,6 +379,9 @@ config_parse_file( config_t *c){
     }else if( !strcasecmp(tname, "GROUP_MEMBER_ATTR" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
       STRDUP_IFNOTSET(p->member_attribute, ldapconfig->keymaps[i].value[0] );
+    }else if( !strcasecmp(tname, "IPTABLE_RULES_FIELD" ) ){
+      // CHECK_IF_IN_PROFILE( arg, in_profile );
+      STRDUP_IFNOTSET(p->iptable_rules_field, ldapconfig->keymaps[i].value[0] );
     }else if( !strcasecmp(tname, "GROUP_MAP_FIELD" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
       for(int n=0;n<ldapconfig->keymaps[i].vlen;n++){

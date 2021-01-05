@@ -216,6 +216,9 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   // 初始iptables规则。
   config_init_iptable_rules(iptblrules);
   
+  //
+  config_load_ldap_groups_profiles(context); 
+  // 
   /* when ldap userconf is define, we need to hook onto those callbacks */
   if( config_is_pf_enabled( context->config )){
     *type_mask |= OPENVPN_PLUGIN_MASK (OPENVPN_PLUGIN_ENABLE_PF);
@@ -395,7 +398,7 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
           con_value->groups=cc->groups;
           if(JoinVpnQueue(ConnVpnQueue_r,con_value))
           {
-            LOGINFO("Join current ip [%s] and username [%s] connection data to the queue successfully, current queue num %d!",
+            LOGINFO("Join current ip [%s] and username [%s] connection data to the queue successfully, current queue num: %d",
               con_value->ip,
               con_value->username,
               getVpnQueueLength(ConnVpnQueue_r));
@@ -423,7 +426,7 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         new_value->groups=cc->groups;
         if(JoinVpnQueue(ConnVpnQueue_r,new_value))
         {
-          LOGINFO("Join current ip [%s] and username [%s] connection data to the queue successfully, current queue num %d!",
+          LOGINFO("Join current ip [%s] and username [%s] connection data to the queue successfully, current queue num: %d",
               new_value->ip,
               new_value->username,
               getVpnQueueLength(ConnVpnQueue_r));
@@ -435,17 +438,16 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
       }
       else if(!strcasecmp(argv[1],"delete")) 
       {
-        // dump_env(argv);
         VpnData *cleanvalue;
         char *ip = (char *)argv[2];
         if(ByValueLeaveVpnQueue(ConnVpnQueue_r,ip,&cleanvalue))
         {
           la_learn_roles_delete(cleanvalue);
-          FreeConnVPNDataMem(cleanvalue);
           LOGINFO("Client [%s] is disconnect.IP [%s] ,current queue %d.",
                   cleanvalue->username,
                   cleanvalue->ip,
                   getVpnQueueLength(ConnVpnQueue_r));
+          FreeConnVPNDataMem(cleanvalue);
         }
       }
 

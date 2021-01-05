@@ -471,10 +471,7 @@ connect_ldap( ldap_context_t *l ){
   return ldap;
 
 connect_ldap_error:
-  rc = ldap_unbind_ext_s( ldap, NULL, NULL );
-  if( rc != LDAP_SUCCESS ){
-    LOGERROR( "ldap_unbind_ext_s returned: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
-  }
+  ldap_conn_handle_free(ldap,NULL);
   return NULL;
 }
 
@@ -484,7 +481,7 @@ connect_ldap_error:
  */
 
 int
-ldap_binddn( LDAP *ldap, const char *username, const char *password ){
+ldap_binddn( LDAP *ldap,config_t *config, const char *username, const char *password ){
   int rc;
   struct berval bv, *servcred = NULL;
 
@@ -497,8 +494,24 @@ ldap_binddn( LDAP *ldap, const char *username, const char *password ){
   }
   rc = ldap_sasl_bind_s( ldap, username, LDAP_SASL_SIMPLE, &bv, NULL, NULL, &servcred);
   if( servcred ) ber_bvfree( servcred );
+
+  switch( rc ){
+    case LDAP_SUCCESS:
+      LOGINFO( "ldap_sasl_bind_s %s success", config->ldap->binddn ? config->ldap->binddn : "Anonymous" );
+      break;
+    case LDAP_INVALID_CREDENTIALS:
+      LOGERROR( "ldap_binddn: Invalid Credentials" );
+      ldap_conn_handle_free(ldap,NULL);
+      break;
+    default:
+      LOGERROR( "ldap_binddn: return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
+      ldap_conn_handle_free(ldap,NULL);
+  }
+
   return rc;
 }
+
+
 
 /**
  * Check if userdn belongs to group
@@ -578,7 +591,7 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
               {
                 cc->groups[group_num].description = strdup(vals[0]->bv_val);
               }
-              LOGDEBUG("Get profile %s value length %d, char length: %s",attr,vals[0]->bv_len,vals[0]->bv_val);
+              LOGDEBUG("Get profile [%s] value length: %d, current value: %s",attr,vals[0]->bv_len,vals[0]->bv_val);
             }
             ldap_value_free_len(vals);
           }
@@ -611,28 +624,16 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
   ldap = connect_ldap( l );
   if( ldap == NULL ){
     LOGERROR( "Could not connect to URI %s", config->ldap->uri );
-    goto la_ldap_handle_authentication_exit;
+    return res;
   }
   /* bind to LDAP server anonymous or authenticated */
-  rc = ldap_binddn( ldap, config->ldap->binddn, config->ldap->bindpw );
-  switch( rc ){
-    case LDAP_SUCCESS:
-      if( DOINFO( l->verb ) )
-        LOGINFO( "ldap_sasl_bind_s %s success", config->ldap->binddn ? config->ldap->binddn : "Anonymous" );
-      break;
-    case LDAP_INVALID_CREDENTIALS:
-      LOGERROR( "ldap_binddn: Invalid Credentials" );
-      goto la_ldap_handle_authentication_free;
-    default:
-      LOGERROR( "ldap_binddn: return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
-      goto la_ldap_handle_authentication_free;
-  }
-
+  ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
   /* find user and return userdn */
   userdn = ldap_find_user( ldap, l, auth_context->username, client_context );
   if( !userdn ){
     LOGWARNING( "LDAP user *%s* was not found", auth_context->username );
-    goto la_ldap_handle_authentication_free;
+    ldap_conn_handle_free(ldap,userdn);
+    return res;
   }
 
   if (auth_context && l->config ){
@@ -640,11 +641,11 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
       if (DOINFO (l->verb)) {
           LOGINFO ("LDAP-AUTH: Authenticating Username:%s", auth_context->username );
       }
-      rc = ldap_binddn( ldap, userdn, auth_context->password );
+      rc = ldap_binddn( ldap, config, userdn, auth_context->password );
       if( rc != LDAP_SUCCESS ){
-        LOGERROR( "rebinding: return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
-        res = OPENVPN_PLUGIN_FUNC_ERROR;
-        goto la_ldap_handle_authentication_free;
+        // LOGERROR( "rebinding: return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
+        ldap_conn_handle_free(ldap,userdn);
+        return res;
       }else{
         /* success, let set our return value to SUCCESS */
         if( DOINFO( l->verb ) )
@@ -654,8 +655,8 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
         ldap_account_load_from_dn( l, ldap, userdn, client_context );
         /* check if user timeframe is allowed start_date, end_date */
         if( ldap_profile_handle_allowed_timeframe( client_context->ldap_account->profile ) != 0 ){
-          res = OPENVPN_PLUGIN_FUNC_ERROR;
-          goto la_ldap_handle_authentication_free;
+          ldap_conn_handle_free(ldap,userdn);
+          return res;
         }
         if(DODEBUG(l->verb))
           ldap_account_dump( client_context->ldap_account );
@@ -665,7 +666,7 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
 
         /* check if user belong to right groups */
         if( client_context->profile->groupdn && client_context->profile->group_search_filter && client_context->profile->member_attribute ){
-            rc = ldap_binddn( ldap, config->ldap->binddn, config->ldap->bindpw );
+            ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
             rc = ldap_group_membership( ldap, l, client_context  );
             if( rc == 0 ){
               res = OPENVPN_PLUGIN_FUNC_SUCCESS;
@@ -676,15 +677,98 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
       }
     }
   }
-la_ldap_handle_authentication_free:
+  return res;
+}
+
+// 
+int config_load_ldap_groups_profiles(ldap_context_t *l)
+{
+  LDAP *ldap = NULL;
+  LDAPMessage *result = NULL;
+  struct timeval timeout;
+  config_t *config = l->config;
+  profile_config_t *lp = config->profiles->first->data;
+  int ldap_scope = LA_SCOPE_ONELEVEL;
+  int rc = 0;
+  char *attrs[ldap_array_len(lp->group_map_field)+2];
+  int i=0;
+  while(lp->group_map_field[i]!=NULL)
+  {
+    attrs[i]=lp->group_map_field[i];
+    i++;
+  }
+  attrs[i]=lp->iptable_rules_field?lp->iptable_rules_field:"iptableItems";
+  attrs[++i]=NULL;
+  /* Connection to LDAP backend */
+  ldap = connect_ldap( l );
+  la_ldap_set_timeout( config, &timeout );
+  if( ldap == NULL ){
+    LOGERROR( "Could not connect to URI %s", config->ldap->uri );
+    return rc;
+  }
+  /* bind to LDAP server anonymous or authenticated */
+  rc = ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
+  if( rc == LDAP_SUCCESS ){
+    ldap_scope = la_ldap_config_search_scope_to_ldap( lp->search_scope );
+    rc = ldap_search_ext_s( ldap, lp->groupdn, ldap_scope, lp->group_search_filter, attrs, 0, NULL, NULL, &timeout, 1000, &result );
+    if( rc == LDAP_SUCCESS ){
+      /* Check how many entries were found. Only one should be returned */
+      int nbrow = ldap_count_entries( ldap, result );
+
+      LDAPMessage *entry;
+      char *attr;
+      int group_num=0;
+      lp->iptable_groups_len=nbrow;
+      lp->iptable_rules=la_malloc(sizeof(LdapIptableRoles)*nbrow);
+      for (entry = ldap_first_entry(ldap, result); entry != NULL; entry = ldap_next_entry(ldap, entry))
+      {
+        BerElement *ber=NULL;
+        for(attr=ldap_first_attribute(ldap,entry,&ber);attr!=NULL;attr=ldap_next_attribute(ldap,entry,ber))
+        {
+            struct berval **vals;
+            vals=ldap_get_values_len(ldap,entry,attr);
+
+            if(vals!=NULL)
+            {
+              int count=0;
+              count=ldap_count_values_len(vals);
+              if(!strcasecmp(attr,"cn"))
+              {
+                lp->iptable_rules[group_num].item_len=0;
+                lp->iptable_rules[group_num].role_name=strdup(vals[0]->bv_val);
+              }
+              if(!strcasecmp(attr,lp->iptable_rules_field))
+              {
+                lp->iptable_groups_len=count;
+                lp->iptable_rules[group_num].role_item=(char **)malloc(sizeof(char *) * count);
+                for(int i=0;i<count;i++){
+                  lp->iptable_rules[group_num].role_item[i] = strdup(vals[i]->bv_val);
+                  LOGINFO("%s\n",vals[i]->bv_val);
+                }
+              }
+              LOGDEBUG("Get LDAP Permission Groups profile [%s] value length: %d, current value: %s",attr,vals[0]->bv_len,vals[0]->bv_val);
+            }
+            ldap_value_free_len(vals);
+            
+          ldap_memfree( attr );
+        }
+        group_num++;
+        if(ber != NULL) ber_free(ber, 0);
+      }
+    }
+  }
+  ldap_conn_handle_free(ldap,NULL);
+  return rc;
+}
+
+// 
+int ldap_conn_handle_free(LDAP *ldap, char *userdn)
+{
+  int rc=0;
   rc = ldap_unbind_ext_s( ldap, NULL, NULL );
   if( rc != LDAP_SUCCESS ){
-    LOGERROR( "ldap_unbind_ext_s: return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
+    LOGERROR( "ldap_unbind_ext_s return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
   }
   if( userdn ) free( userdn );
-
-la_ldap_handle_authentication_exit:
-
-  return res;
-
+  return rc;
 }

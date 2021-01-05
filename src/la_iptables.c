@@ -26,7 +26,7 @@ int la_learn_roles_add(VpnData *vdata)
     char rules_item[len];
     sprintf(rules_item,IPT_RULES_FMT,vdata->ip,vdata->groups[i].groupname,vdata->username,desc);
     ret=ldap_plugin_run_system(IPTABLE_INSERT_ROLE,"FORWARD",rules_item);
-    LOGINFO("Client [%s] is connected.IP [%s],vpn groups [%s] !",
+    LOGINFO("Client [%s] is connected.IP [%s],vpn groups [%s]!",
             vdata->username,
             vdata->ip,
             vdata->groups[i].groupname);
