@@ -82,6 +82,9 @@ config_set_default( config_t *c){
 #ifdef OTLS_REQCERT
   STRDUP_IFNOTSET(c->ldap->tls_reqcert, OTLS_REQCERT );
 #endif
+// #ifdef USER_SCOPE
+//   STRDUP_IFNOTSET(c->profiles->first->data->search_scope, USER_SCOPE );
+// #endif
 #ifdef OTIMEOUT
   if( !c->ldap->timeout ) c->ldap->timeout = OTIMEOUT;
 #endif
@@ -147,14 +150,28 @@ ldap_config_dup( const ldap_config_t *c ){
   return nc;
 }
 
+void ldap_iptables_roles_free(LdapIptableRoles *ldroles)
+{
+  if(ldroles==NULL) return ;
+  for(int s=0;s<ldroles->clen;s++)
+  {
+    for(int t=0;t<ldroles->chains[s].rule_len;t++)
+    {
+      check_and_free(ldroles->chains[s].rule_item[t]);
+    }
+    check_and_free(ldroles->chains[s].rule_item);
+    check_and_free(ldroles->chains[s].chain_name);
+    if(ldroles->chains[s].rule_len>0) check_and_free(ldroles->chains[s].rule_item);
+  }
+  check_and_free(ldroles->chains);
+  check_and_free(ldroles);
+}
 /**
  * profile
  */
 void
 profile_config_free ( profile_config_t *c ){
-  if( !c )
-    return;
-
+  if( !c ) return;
 	check_and_free( c->usersdn );
   check_and_free( c->search_filter );
   /* Group */
@@ -162,17 +179,10 @@ profile_config_free ( profile_config_t *c ){
   check_and_free( c->group_search_filter );
   check_and_free( c->member_attribute );
   check_and_free( c->iptable_rules_field );
-  for(int s=0;s<c->iptable_groups_len;s++)
-  {
-    check_and_free(c->iptable_rules[s].role_name);
-    for(int t=0;t<c->iptable_rules[s].item_len;t++)
-    {
-      check_and_free(c->iptable_rules[s].role_item[t]);
-    }
-    if(c->iptable_rules[s].item_len>0) check_and_free(c->iptable_rules[s].role_item);
-  }
-  c->iptable_groups_len=0;
-  check_and_free( c->iptable_rules );
+  
+  ldap_iptables_roles_free( c->iptable_rules );
+
+  // check_and_free( c->iptable_rules );
   check_and_free( c->default_pf_rules );
   for(int i=0;c->group_map_field[i]!=NULL;i++)
   {
@@ -219,7 +229,6 @@ profile_config_dup( const profile_config_t *c ){
   if( c->group_search_filter ) nc->group_search_filter = strdup( c->group_search_filter );
   if( c->member_attribute ) nc->member_attribute = strdup( c->member_attribute );
   if( c->iptable_rules_field ) nc->iptable_rules_field = strdup( c->iptable_rules_field );
-  if( c->iptable_groups_len ) nc->iptable_groups_len =c->iptable_groups_len;
   /* PF */
   if( c->default_pf_rules ) nc->default_pf_rules = strdup( c->default_pf_rules );
   nc->enable_pf = c->enable_pf;
@@ -384,9 +393,13 @@ config_parse_file( config_t *c){
       STRDUP_IFNOTSET(p->iptable_rules_field, ldapconfig->keymaps[i].value[0] );
     }else if( !strcasecmp(tname, "GROUP_MAP_FIELD" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
-      for(int n=0;n<ldapconfig->keymaps[i].vlen;n++){
+      int n=0;
+      int hav_desc=1;
+      for(;n<ldapconfig->keymaps[i].vlen;n++){
         p->group_map_field[n]=strdup(ldapconfig->keymaps[i].value[n]);
+        if(strcasecmp(ldapconfig->keymaps[i].value[n],"description")) hav_desc=0;
       }
+      if(hav_desc) p->group_map_field[++n]=strdup("description");
     }else{
       LOGWARNING("Unrecognized option *%s=%s*", tname, ldapconfig->keymaps[i].value[0]);
     }
@@ -436,11 +449,9 @@ config_dump( config_t *c){
     LOGDEBUG_IFSET(p->member_attribute,"  Member Attribute");
     if(p->group_map_field[0])
     {
-      char *f;
-      f=char_array_join(p->group_map_field,",");
-      LOGDEBUG("  Group Map Fields: %s",f);
-      check_and_free(f);
+      LOGDEBUG("  Group Map Fields: %s",char_array_join(p->group_map_field,","));
     }
+    LOGDEBUG_IFSET(p->iptable_rules_field,"  Iptable Rules Field");
     LOGDEBUG( "  Enable PF: %s", ternary_to_string(p->enable_pf));
     LOGDEBUG( "  Default PF rules: %s", p->default_pf_rules ? p->default_pf_rules : "Undefined" );
 #ifdef ENABLE_LDAPUSERCONF
@@ -496,6 +507,7 @@ config_is_redirect_gw_enabled_for_profile( profile_config_t *p ){
 // 
 void config_iptables_printf(ldap_config_keyvalue_t *rules)
 {
+  LOGNOTICE("============================IptablesRoles============================");
   int i=0;
   while (i <rules->klen)
   {
@@ -506,29 +518,6 @@ void config_iptables_printf(ldap_config_keyvalue_t *rules)
       m++;
     }
     i++;
-  }
-}
-// 
-void config_ldap_printf(ldap_config_keyvalue_t *rules)
-{
-  for(int i=0;i<rules->klen;i++)
-  {
-    // char *buf;
-    if(rules->keymaps[i].name!=NULL){
-      if(!strcasecmp(rules->keymaps[i].name,"BIND_PASS"))
-      {
-        LOGNOTICE("%d-%s=%s",i,rules->keymaps[i].name,"********");
-        continue;
-      }
-      if(rules->keymaps[i].vlen>1){
-        char *t;
-        t=char_array_join(rules->keymaps[i].value,",");
-        LOGNOTICE("%d,%s: %s",i,rules->keymaps[i].name,t);
-        check_and_free(t);
-      }else{
-        LOGNOTICE("%d-%s=%s",i,rules->keymaps[i].name,rules->keymaps[i].value[0]);
-      }
-    }
   }
 }
 void config_ldap_plugin_serverinfo_free(ldap_openvpn_server_info *info)
@@ -736,12 +725,6 @@ int config_init_ldap_config_set(const char *filename,const char *envp[])
       yaml_token_delete(&token);
   } while(token.type != YAML_STREAM_END_TOKEN);
   yaml_parser_delete(&parser);
-
-  if(DODEBUG(openvpnserverinfo->verb))
-  {
-    config_ldap_printf(ldapconfig);
-    config_iptables_printf(iptblrules);
-  }
   fclose(fh);
   return 0;
 }

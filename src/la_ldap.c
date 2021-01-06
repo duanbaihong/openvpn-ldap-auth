@@ -583,7 +583,7 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
             vals=ldap_get_values_len(ldap,entry,attr);
             if(vals!=NULL)
             {
-              if(!strcasecmp(attr,"cn"))
+              if(!strcasecmp(attr,p->group_map_field[0]))
               {
                 cc->groups[group_num].groupname=strdup(vals[0]->bv_val);
               }
@@ -714,46 +714,52 @@ int config_load_ldap_groups_profiles(ldap_context_t *l)
     if( rc == LDAP_SUCCESS ){
       /* Check how many entries were found. Only one should be returned */
       int nbrow = ldap_count_entries( ldap, result );
-
       LDAPMessage *entry;
       char *attr;
       int group_num=0;
-      lp->iptable_groups_len=nbrow;
-      lp->iptable_rules=la_malloc(sizeof(LdapIptableRoles)*nbrow);
+      // lp->iptable_groups_len=nbrow;
+      LdapIptableRoles *iptablerules;
+      iptablerules=la_malloc(sizeof(LdapIptableRoles));
+      la_memset(iptablerules,0,sizeof(LdapIptableRoles));
+      // lp->iptable_rules
+      iptablerules->clen=nbrow;
+      iptablerules->chains=la_malloc(sizeof(IptableChainItems)*nbrow);
+      la_memset(iptablerules->chains,0,sizeof(IptableChainItems)*nbrow);
       for (entry = ldap_first_entry(ldap, result); entry != NULL; entry = ldap_next_entry(ldap, entry))
       {
         BerElement *ber=NULL;
         for(attr=ldap_first_attribute(ldap,entry,&ber);attr!=NULL;attr=ldap_next_attribute(ldap,entry,ber))
         {
-            struct berval **vals;
-            vals=ldap_get_values_len(ldap,entry,attr);
+          struct berval **vals;
+          vals=ldap_get_values_len(ldap,entry,attr);
 
-            if(vals!=NULL)
+          if(vals!=NULL)
+          {
+            int count=0;
+            count=ldap_count_values_len(vals);
+            if(!strcasecmp(attr,lp->group_map_field[0]))
             {
-              int count=0;
-              count=ldap_count_values_len(vals);
-              if(!strcasecmp(attr,"cn"))
-              {
-                lp->iptable_rules[group_num].item_len=0;
-                lp->iptable_rules[group_num].role_name=strdup(vals[0]->bv_val);
-              }
-              if(!strcasecmp(attr,lp->iptable_rules_field))
-              {
-                lp->iptable_groups_len=count;
-                lp->iptable_rules[group_num].role_item=(char **)malloc(sizeof(char *) * count);
-                for(int i=0;i<count;i++){
-                  lp->iptable_rules[group_num].role_item[i] = strdup(vals[i]->bv_val);
-                  LOGINFO("%s\n",vals[i]->bv_val);
-                }
-              }
-              LOGDEBUG("Get LDAP Permission Groups profile [%s] value length: %d, current value: %s",attr,vals[0]->bv_len,vals[0]->bv_val);
+              iptablerules->chains[group_num].rule_len=0;
+              iptablerules->chains[group_num].chain_name=strdup(vals[0]->bv_val);
             }
-            ldap_value_free_len(vals);
-            
+            if(!strcasecmp(attr,lp->iptable_rules_field))
+            {
+              iptablerules->chains[group_num].rule_len=count;
+              iptablerules->chains[group_num].rule_item=(char **)malloc(sizeof(char *) * count);
+              la_memset(iptablerules->chains[group_num].rule_item,0,sizeof(char *) * count);
+              for(int i=0;i<count;i++){
+                iptablerules->chains[group_num].rule_item[i] = strdup(vals[i]->bv_val);
+                // LOGINFO("%s\n",vals[i]->bv_val);
+              }
+            }
+            if(DODEBUG(l->verb)) LOGDEBUG("Get LDAP Permission Groups profile [%s] value length: %d, current value: %s",attr,vals[0]->bv_len,vals[0]->bv_val);
+          }
+          ldap_value_free_len(vals);
           ldap_memfree( attr );
         }
         group_num++;
         if(ber != NULL) ber_free(ber, 0);
+        lp->iptable_rules=iptablerules;
       }
     }
   }

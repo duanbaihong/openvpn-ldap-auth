@@ -31,22 +31,28 @@
 #define  IP_RULE_KEYS_BUF   128
 #define  IP_RULE_ITEM_BUF   IP_RULE_KEYS_BUF
 
+typedef struct 
+{
+  u_int   rule_len;
+  char    *chain_name;
+  char    **rule_item;  
+}IptableChainItems;
+
+typedef struct 
+{
+  u_int                clen;
+  IptableChainItems    *chains;
+}LdapIptableRoles;
+
 typedef struct ldap_conf_t
 {
   u_int  klen;
   struct ldap_keymap_t {
+    u_int vlen;
     char  *name;
     char  *value[IP_RULE_ITEM_BUF];
-    u_int vlen;
   } keymaps[IP_RULE_KEYS_BUF];
 } ldap_config_keyvalue_t;
-
-typedef struct ldap_iptable_roles_t
-{
-  int   item_len;
-  char  *role_name;
-  char  **role_item;  
-}LdapIptableRoles;
 
 typedef struct openvpn_server_info
 {
@@ -112,7 +118,6 @@ typedef struct profile_config{
   char        *default_profiledn;
 #endif
   char        *iptable_rules_field;
-  int         iptable_groups_len;
   LdapIptableRoles        *iptable_rules;
 } profile_config_t;
 
@@ -144,11 +149,11 @@ extern int config_is_redirect_gw_enabled_for_profile( profile_config_t *p );
 // yaml config 
 
 extern int  config_parse_file( config_t *c );
-extern void config_ldap_printf(ldap_config_keyvalue_t *rules);
 extern void config_iptables_printf(ldap_config_keyvalue_t *rules);
-extern void config_ldap_plugin_free(ldap_config_keyvalue_t *rules);
 extern void config_init_iptable_rules(ldap_config_keyvalue_t *rules);
 extern void config_uninit_iptable_rules(ldap_config_keyvalue_t *rules);
 extern int  config_init_ldap_config_set(const char *filename,const char *envp[]);
 extern void config_ldap_plugin_serverinfo_free(ldap_openvpn_server_info *info);
+extern void config_ldap_plugin_free(ldap_config_keyvalue_t *rules);
+extern void ldap_iptables_roles_free(LdapIptableRoles *ldroles);
 #endif /* _CNF_H_ */

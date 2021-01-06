@@ -195,10 +195,6 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   if( configfile == NULL) {
     configfile = OCONFIG;
   }
-
-  // if( config_parse_file( configfile, context->config ) ){
-  //   goto error;
-  // }
   const char *verb_string = get_env ("verb", envp);
   if (verb_string)
     context->verb = atoi (verb_string);
@@ -213,12 +209,17 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
    */
   config_set_default( context->config );
 
-  // 初始iptables规则。
-  config_init_iptable_rules(iptblrules);
-  
   //
   config_load_ldap_groups_profiles(context); 
+
   // 
+  if( DODEBUG( context->verb ) )
+  {
+    config_dump( context->config);
+    config_iptables_printf(iptblrules);
+  }
+  // 初始iptables规则。
+  config_init_iptable_rules(iptblrules);
   /* when ldap userconf is define, we need to hook onto those callbacks */
   if( config_is_pf_enabled( context->config )){
     *type_mask |= OPENVPN_PLUGIN_MASK (OPENVPN_PLUGIN_ENABLE_PF);
@@ -232,13 +233,6 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   }
 #endif
 
-  /*
-   * Get verbosity level from environment
-   */
-
-
-  if( DODEBUG( context->verb ) )
-      config_dump( context->config );
 
 
   /* set up mutex/cond */
@@ -479,7 +473,7 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
     pthread_cond_destroy( &action_cond );
   }
   ldap_context_free( context );
-  // 
+  // 释放iptable规则
   config_uninit_iptable_rules(iptblrules);
   if(DestroyVpnQueue(ConnVpnQueue_r))
     LOGINFO("free queue success.");
@@ -492,33 +486,7 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
 OPENVPN_EXPORT void
 openvpn_plugin_abort_v1 (openvpn_plugin_handle_t handle)
 {
-  ldap_context_t *context = (ldap_context_t *) handle;
-  if (context) {
-    action_t *action = action_new( );
-
-    if (DOINFO (context->verb))
-      LOGINFO( "%s() called", __FUNCTION__ );
-    if( action){
-      action->type = LDAP_AUTH_ACTION_QUIT;
-      action_push( context->action_list, action );
-      if( DODEBUG( context->verb ) )
-        LOGDEBUG ("Waiting for thread to return");
-      if(action_thread !=0 )
-        pthread_join( action_thread, NULL );
-      if( DODEBUG( context->verb ) )
-        LOGDEBUG ("Thread returned queries left in queue: %d", list_length( context->action_list ));
-      pthread_attr_destroy( &action_thread_attr );
-      pthread_mutex_destroy( &action_mutex );
-      pthread_cond_destroy( &action_cond );
-    }
-    ldap_context_free( context );
-    
-    config_uninit_iptable_rules(iptblrules);
-    if(DestroyVpnQueue(ConnVpnQueue_r))
-      LOGINFO("free queue success.");
-    config_ldap_plugin_free(iptblrules);
-    config_ldap_plugin_free(ldapconfig);
-  }
+  openvpn_plugin_close_v1(handle);
 }
 
 OPENVPN_EXPORT int

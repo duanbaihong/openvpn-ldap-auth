@@ -35,5 +35,6 @@
 //#define OTLS_CIPHERSUITE
 #define OTLS_REQCERT  "never"
 #define OTIMEOUT  15
+#define USER_SCOPE  LA_SCOPE_ONELEVEL
 
 #endif
