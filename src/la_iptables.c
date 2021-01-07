@@ -48,6 +48,75 @@ int la_learn_roles_delete(VpnData *vdata)
   return ret;
 }
 
+
+static void config_default_iptable_rules(iptable_rules_action_type ctype)
+{
+  char allowVpn[128];
+  sprintf(allowVpn,"-p %s -m %s --dport %s -j ACCEPT",openvpnserverinfo->proto,openvpnserverinfo->proto,openvpnserverinfo->serverport);
+  ldap_plugin_run_system(ctype,"INPUT",allowVpn);
+  // 添加FORWORD链默认规则 默认允许DNS解析，最后规则是拒绝所有连接。
+  // char * netaddr=GetNetworkAndCIDRAddress(localip,localnetmask);
+  sprintf(allowVpn, "-p all -s %s -j DROP", openvpnserverinfo->netaddr);
+  ldap_plugin_run_system(ctype, "FORWARD", allowVpn);
+  sprintf(allowVpn,"-p tcp -m tcp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
+  ldap_plugin_run_system(ctype,"FORWARD",allowVpn);
+  sprintf(allowVpn,"-p udp -m udp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
+  sprintf(allowVpn,"-p udp -m udp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
+  ldap_plugin_run_system(ctype,"FORWARD",allowVpn);
+  sprintf(allowVpn,"-s %s -j MASQUERADE",openvpnserverinfo->netaddr);
+  if (ctype == IPTABLE_DELETE_ROLE)
+    ldap_plugin_run_system(IPTABLE_DELETE_MASQUERADE_ROLE, "POSTROUTING", allowVpn);
+  else if (ctype == IPTABLE_INSERT_ROLE)
+    ldap_plugin_run_system(IPTABLE_INSERT_MASQUERADE_ROLE, "POSTROUTING", allowVpn);
+  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER,"INPUT","");
+  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER,"FORWARD","");
+}
+
+void config_uninit_iptable_rules(LdapIptableRoles *rules)
+{
+  int i=0;
+  // LOGINFO("%s",rules);
+  if(!rules) return ;
+  config_default_iptable_rules(IPTABLE_DELETE_ROLE);
+  while (i <rules->clen)
+  {
+    if(rules->chains[i].chain_name!=NULL)
+    {
+      ldap_plugin_run_system(IPTABLE_EMPTY_FILTER,rules->chains[i].chain_name,"");
+      ldap_plugin_run_system(IPTABLE_DELETE_FILTER,rules->chains[i].chain_name,"");
+    }
+    i++;
+  } 
+}
+
+void config_init_iptable_rules(LdapIptableRoles *rules)
+{
+  LOGINFO("Starting Initial iptables policy entry。");
+  config_default_iptable_rules(IPTABLE_INSERT_ROLE);
+  for(int i=0;i<rules->clen;i++)
+  {
+    if(rules->chains[i].chain_name!=NULL)
+    {
+      int ret;
+      ret =ldap_plugin_run_system(IPTABLE_CREATE_FILTER,rules->chains[i].chain_name,"");
+      if(ret!=0)
+      {
+        i++;
+        continue;
+      }
+      for(int m=0;m<rules->chains[i].rule_len;m++)
+      {
+        if(rules->chains[i].rule_item[m]!=NULL)
+        {
+          ldap_plugin_run_system(IPTABLE_APPEND_ROLE,rules->chains[i].chain_name,rules->chains[i].rule_item[m]);
+        }
+      }
+      ldap_plugin_run_system(IPTABLE_APPEND_ROLE,rules->chains[i].chain_name,"-p all -j RETURN");
+    }
+  }
+}
+
+
 int
 ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, char * rule_item)
 {
@@ -100,7 +169,7 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
   {
     ret=system(cmd_argv);
     if(ret){
-      LOGERROR("Run command error:[%s %s %s] msg:%s,error code=%d",
+      LOGERROR("Run command error:[ %s %s %s] msg:%s,error code=%d",
         iptables_cmd,
         filter_name,
         rule_item,
@@ -112,4 +181,19 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
     FREE_IF_NOT_NULL(cmd_argv);
   }
   return ret;
+}
+
+// 
+void config_iptables_printf(LdapIptableRoles *rules)
+{
+  if(!rules) return;
+  LOGNOTICE("============================IptablesRoles============================");
+  for(int i=0; i<rules->clen;i++)
+  {
+    LOGNOTICE("%d,%s:",i,rules->chains[i].chain_name);
+    for(int s=0; s<rules->chains[i].rule_len;s++)
+    {
+      LOGNOTICE("\t%d-%d-%s",s,rules->chains[i].rule_len,rules->chains[i].rule_item[s]);
+    }
+  }
 }

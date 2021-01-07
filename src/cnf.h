@@ -149,11 +149,9 @@ extern int config_is_redirect_gw_enabled_for_profile( profile_config_t *p );
 // yaml config 
 
 extern int  config_parse_file( config_t *c );
-extern void config_iptables_printf(ldap_config_keyvalue_t *rules);
-extern void config_init_iptable_rules(ldap_config_keyvalue_t *rules);
-extern void config_uninit_iptable_rules(ldap_config_keyvalue_t *rules);
 extern int  config_init_ldap_config_set(const char *filename,const char *envp[]);
 extern void config_ldap_plugin_serverinfo_free(ldap_openvpn_server_info *info);
 extern void config_ldap_plugin_free(ldap_config_keyvalue_t *rules);
 extern void ldap_iptables_roles_free(LdapIptableRoles *ldroles);
+extern void config_iptable_role_merge(LdapIptableRoles *tlp ,ldap_config_keyvalue_t *localrole);
 #endif /* _CNF_H_ */

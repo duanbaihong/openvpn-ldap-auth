@@ -36,7 +36,6 @@
 #include "yaml.h"
 #include <stdbool.h>
 #include "queue.h"
-#include <la_iptables.h>
 
 #define LOGDEBUG_IFSET(a,prefix) if(a) LOGDEBUG( "%s: %s", prefix, a);
 #define STRDUP_IFNOTSET(a,b) if(!a && b) a=strdup(b);
@@ -153,13 +152,13 @@ ldap_config_dup( const ldap_config_t *c ){
 void ldap_iptables_roles_free(LdapIptableRoles *ldroles)
 {
   if(ldroles==NULL) return ;
+  // LOGINFO("%d",ldroles->clen);
   for(int s=0;s<ldroles->clen;s++)
-  {
+  { // LOGINFO("%s",ldroles->chains[s].chain_name);
     for(int t=0;t<ldroles->chains[s].rule_len;t++)
-    {
+    { // LOGINFO("%s",ldroles->chains[s].rule_item[t]);
       check_and_free(ldroles->chains[s].rule_item[t]);
-    }
-    check_and_free(ldroles->chains[s].rule_item);
+    } // check_and_free(ldroles->chains[s].rule_item);
     check_and_free(ldroles->chains[s].chain_name);
     if(ldroles->chains[s].rule_len>0) check_and_free(ldroles->chains[s].rule_item);
   }
@@ -211,6 +210,46 @@ profile_config_new ( void ){
   c->search_scope = LA_SCOPE_ONELEVEL;
   c->iptable_rules_field=strdup("iptableRoles");
   return c;
+}
+
+// 合并iptables链及规则
+void config_iptable_role_merge(LdapIptableRoles *tlp ,ldap_config_keyvalue_t *localrole)
+{
+  if(!tlp) return ;
+  // LdapIptableRoles *tlp=lp->iptable_rules;
+  for(int i=0; i<localrole->klen;i++)
+  {
+    int has_ready=0;
+    for(int m=0; m<tlp->clen;m++)
+    {
+      // 判断有重复，合并规则
+      if(!strcasecmp(localrole->keymaps[i].name,tlp->chains[m].chain_name))
+      {
+        has_ready=1;
+        // LOGINFO("找到重复链 %s",localrole->keymaps[i].name);
+        // LOGINFO("找到重复链 %s",tlp->chains[m].chain_name);
+        tlp->chains[m].rule_item=(char **)realloc(tlp->chains[m].rule_item,sizeof(char *)*(tlp->chains[m].rule_len+localrole->keymaps[i].vlen));
+        for(int s=0; s<localrole->keymaps[i].vlen;s++)
+        {
+          // int n_p=tlp->chains[m].rule_len+s;
+          tlp->chains[m].rule_item[tlp->chains[m].rule_len+s]=strdup(localrole->keymaps[i].value[s]);
+        }
+        tlp->chains[m].rule_len=tlp->chains[m].rule_len+localrole->keymaps[i].vlen;
+      }
+    }
+    if(!has_ready)
+    {
+      tlp->clen++;
+      tlp->chains=realloc(tlp->chains,sizeof(IptableChainItems)*tlp->clen);
+      tlp->chains[tlp->clen-1].chain_name=strdup(localrole->keymaps[i].name);
+      tlp->chains[tlp->clen-1].rule_len=localrole->keymaps[i].vlen;
+      tlp->chains[tlp->clen-1].rule_item=(char **)malloc(sizeof(char *)*localrole->keymaps[i].vlen);
+      for(int r=0;r<localrole->keymaps[i].vlen;r++)
+      {
+        tlp->chains[tlp->clen-1].rule_item[r]=strdup(localrole->keymaps[i].value[r]);
+      }
+    }
+  }
 }
 
 profile_config_t *
@@ -293,36 +332,6 @@ config_free( config_t *c ){
   list_free( c->profiles, profile_config_list_free_cb );
   la_free( c );
 }
-
-char *
-f_readline( int fd ){
-	char *line = NULL;
-	int length = 0;
-	char c;
-	int rc = 0;
-	while( ( rc = read( fd, &c, 1 ) ) > 0 ){
-		length++;
-		line = realloc( line, length + 1 );
-		line[length-1] = c;
-		if( c == '\n' ) break;
-	}
-	if( rc < 0 ){
-		/* an error occured */
-		free(line);
-		return NULL;
-	}
-	if(line) line[length] = '\0';
-	return line;
-}
-
-
-char *
-skip_whitespaces( char *l ){
-  while(isspace(l[0]))
-    l++;
-  return l;
-}
-
 
 int
 config_parse_file( config_t *c){
@@ -501,25 +510,6 @@ config_is_redirect_gw_enabled_for_profile( profile_config_t *p ){
   return p->redirect_gateway_prefix != NULL;
 }
 
-
-
-
-// 
-void config_iptables_printf(ldap_config_keyvalue_t *rules)
-{
-  LOGNOTICE("============================IptablesRoles============================");
-  int i=0;
-  while (i <rules->klen)
-  {
-    int m=0;
-    LOGNOTICE("%d,%s:",i,rules->keymaps[i].name);
-    while(m<rules->keymaps[i].vlen){
-      LOGNOTICE("\t%d-%d-%s",m,rules->keymaps[i].vlen,rules->keymaps[i].value[m]);
-      m++;
-    }
-    i++;
-  }
-}
 void config_ldap_plugin_serverinfo_free(ldap_openvpn_server_info *info)
 {
   check_and_free((char *)info->dev);
@@ -549,72 +539,6 @@ void config_ldap_plugin_free(ldap_config_keyvalue_t *rules)
   LOGNOTICE("free ldap plugin malloc.");
 }
 
-static void config_default_iptable_rules(iptable_rules_action_type ctype)
-{
-  char allowVpn[128];
-  sprintf(allowVpn,"-p %s -m %s --dport %s -j ACCEPT",openvpnserverinfo->proto,openvpnserverinfo->proto,openvpnserverinfo->serverport);
-  ldap_plugin_run_system(ctype,"INPUT",allowVpn);
-  // 添加FORWORD链默认规则 默认允许DNS解析，最后规则是拒绝所有连接。
-  // char * netaddr=GetNetworkAndCIDRAddress(localip,localnetmask);
-  sprintf(allowVpn, "-p all -s %s -j DROP", openvpnserverinfo->netaddr);
-  ldap_plugin_run_system(ctype, "FORWARD", allowVpn);
-  sprintf(allowVpn,"-p tcp -m tcp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
-  ldap_plugin_run_system(ctype,"FORWARD",allowVpn);
-  sprintf(allowVpn,"-p udp -m udp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
-  sprintf(allowVpn,"-p udp -m udp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
-  ldap_plugin_run_system(ctype,"FORWARD",allowVpn);
-  sprintf(allowVpn,"-s %s -j MASQUERADE",openvpnserverinfo->netaddr);
-  if (ctype == IPTABLE_DELETE_ROLE)
-    ldap_plugin_run_system(IPTABLE_DELETE_MASQUERADE_ROLE, "POSTROUTING", allowVpn);
-  else if (ctype == IPTABLE_INSERT_ROLE)
-    ldap_plugin_run_system(IPTABLE_INSERT_MASQUERADE_ROLE, "POSTROUTING", allowVpn);
-
-}
-void config_uninit_iptable_rules(ldap_config_keyvalue_t *rules)
-{
-  int i=0;
-  config_default_iptable_rules(IPTABLE_DELETE_ROLE);
-  while (i <rules->klen)
-  {
-    if(rules->keymaps[i].name!=NULL)
-    {
-      ldap_plugin_run_system(IPTABLE_EMPTY_FILTER,rules->keymaps[i].name,"");
-      ldap_plugin_run_system(IPTABLE_DELETE_FILTER,rules->keymaps[i].name,"");
-    }
-    i++;
-  } 
-}
-
-void config_init_iptable_rules(ldap_config_keyvalue_t *rules)
-{
-  int i=0;
-  LOGINFO("Starting Initial iptables policy entry。");
-  config_default_iptable_rules(IPTABLE_INSERT_ROLE);
-  while (i <rules->klen)
-  {
-    int m=0;
-    if(rules->keymaps[i].name!=NULL)
-    {
-      int ret;
-      ret =ldap_plugin_run_system(IPTABLE_CREATE_FILTER,rules->keymaps[i].name,"");
-      if(ret!=0)
-      {
-        i++;
-        continue;
-      }
-      while(m<rules->keymaps[i].vlen){
-        if(rules->keymaps[i].value[m]!=NULL)
-        {
-          ldap_plugin_run_system(IPTABLE_APPEND_ROLE,rules->keymaps[i].name,rules->keymaps[i].value[m]);
-        }
-        m++;
-      }
-      // 添加一条返回调用链规则
-      ldap_plugin_run_system(IPTABLE_APPEND_ROLE,rules->keymaps[i].name,"-p all -j RETURN");
-      i++;
-    }
-  } 
-}
 
 int config_init_ldap_config_set(const char *filename,const char *envp[])
 {

@@ -16,4 +16,7 @@ typedef enum
 extern const char *IPT_RULES_FMT;
 extern int la_learn_roles_add(VpnData *vdata);
 extern int la_learn_roles_delete(VpnData *vdata);
+extern void config_iptables_printf(LdapIptableRoles *rules);
+extern void config_init_iptable_rules(LdapIptableRoles *rules);
+extern void config_uninit_iptable_rules(LdapIptableRoles *rules);
 extern int ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, char * rule_item);

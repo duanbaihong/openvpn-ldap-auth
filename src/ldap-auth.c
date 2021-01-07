@@ -211,15 +211,17 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
 
   //
   config_load_ldap_groups_profiles(context); 
-
+  // profile_config_t *ls = context->config->profiles->first->data;
+  LdapIptableRoles *tlp=((profile_config_t *)context->config->profiles->first->data)->iptable_rules;
+  config_iptable_role_merge(tlp,iptblrules);
   // 
   if( DODEBUG( context->verb ) )
   {
     config_dump( context->config);
-    config_iptables_printf(iptblrules);
+    config_iptables_printf(tlp);
   }
   // 初始iptables规则。
-  config_init_iptable_rules(iptblrules);
+  config_init_iptable_rules(tlp);
   /* when ldap userconf is define, we need to hook onto those callbacks */
   if( config_is_pf_enabled( context->config )){
     *type_mask |= OPENVPN_PLUGIN_MASK (OPENVPN_PLUGIN_ENABLE_PF);
@@ -472,11 +474,12 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
     pthread_mutex_destroy( &action_mutex );
     pthread_cond_destroy( &action_cond );
   }
-  ldap_context_free( context );
   // 释放iptable规则
-  config_uninit_iptable_rules(iptblrules);
+  LdapIptableRoles *tpl=((profile_config_t *)context->config->profiles->first->data)->iptable_rules;
+  config_uninit_iptable_rules(tpl);
   if(DestroyVpnQueue(ConnVpnQueue_r))
     LOGINFO("free queue success.");
+  ldap_context_free( context );
   config_ldap_plugin_free(iptblrules);
   config_ldap_plugin_free(ldapconfig);
   config_ldap_plugin_serverinfo_free(openvpnserverinfo);
