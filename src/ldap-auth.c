@@ -210,9 +210,10 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   config_set_default( context->config );
 
   //
-  config_load_ldap_groups_profiles(context); 
-  // profile_config_t *ls = context->config->profiles->first->data;
-  LdapIptableRoles *tlp=((profile_config_t *)context->config->profiles->first->data)->iptable_rules;
+  profile_config_t *pro_fd=(profile_config_t *)context->config->profiles->first->data;
+  if(pro_fd->enable_ldap_iptable>0) config_load_ldap_groups_profiles(context);
+  LdapIptableRoles *tlp=pro_fd->iptable_rules;
+  
   config_iptable_role_merge(tlp,iptblrules);
   // 
   if( DODEBUG( context->verb ) )

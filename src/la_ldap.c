@@ -503,6 +503,9 @@ ldap_binddn( LDAP *ldap,config_t *config, const char *username, const char *pass
       LOGERROR( "ldap_binddn: Invalid Credentials" );
       ldap_conn_handle_free(ldap,NULL);
       break;
+    case LDAP_SERVER_DOWN:
+      LOGERROR( "ldap_binddn: return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
+      break;
     default:
       LOGERROR( "ldap_binddn: return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
       ldap_conn_handle_free(ldap,NULL);
@@ -627,7 +630,8 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
     return res;
   }
   /* bind to LDAP server anonymous or authenticated */
-  ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
+  rc=ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
+  if( rc != LDAP_SUCCESS ) return res;
   /* find user and return userdn */
   userdn = ldap_find_user( ldap, l, auth_context->username, client_context );
   if( !userdn ){
@@ -666,7 +670,8 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
 
         /* check if user belong to right groups */
         if( client_context->profile->groupdn && client_context->profile->group_search_filter && client_context->profile->member_attribute ){
-            ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
+            rc = ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
+            // if(rc!=LDAP_SUCCESS) return 
             rc = ldap_group_membership( ldap, l, client_context  );
             if( rc == 0 ){
               res = OPENVPN_PLUGIN_FUNC_SUCCESS;
@@ -771,6 +776,7 @@ int config_load_ldap_groups_profiles(ldap_context_t *l)
 int ldap_conn_handle_free(LDAP *ldap, char *userdn)
 {
   int rc=0;
+  if(!ldap) return rc;
   rc = ldap_unbind_ext_s( ldap, NULL, NULL );
   if( rc != LDAP_SUCCESS ){
     LOGERROR( "ldap_unbind_ext_s return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );

@@ -117,6 +117,7 @@ typedef struct profile_config{
   /* default profiledn for ldap user conf */
   char        *default_profiledn;
 #endif
+  ternary_t   enable_ldap_iptable;
   char        *iptable_rules_field;
   LdapIptableRoles        *iptable_rules;
 } profile_config_t;

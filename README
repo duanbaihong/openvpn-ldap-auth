@@ -59,6 +59,8 @@ LDAP:
   GROUP_FIELD          : 
     - cn
     - description
+  ENABLE_LDAP_IPTABLE  : True
+  IPTABLE_RULES_FIELD  : iptableRoles
 
 # 策略定义 源IP不用添加，系统自动添加
 IPTABLERULES:

@@ -65,11 +65,12 @@ static void config_default_iptable_rules(iptable_rules_action_type ctype)
   ldap_plugin_run_system(ctype,"FORWARD",allowVpn);
   sprintf(allowVpn,"-s %s -j MASQUERADE",openvpnserverinfo->netaddr);
   if (ctype == IPTABLE_DELETE_ROLE)
+  {
     ldap_plugin_run_system(IPTABLE_DELETE_MASQUERADE_ROLE, "POSTROUTING", allowVpn);
+  }
   else if (ctype == IPTABLE_INSERT_ROLE)
     ldap_plugin_run_system(IPTABLE_INSERT_MASQUERADE_ROLE, "POSTROUTING", allowVpn);
-  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER,"INPUT","");
-  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER,"FORWARD","");
+
 }
 
 void config_uninit_iptable_rules(LdapIptableRoles *rules)

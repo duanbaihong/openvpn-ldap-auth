@@ -209,20 +209,24 @@ profile_config_new ( void ){
   la_memset (c, 0, sizeof( profile_config_t ) );
   c->search_scope = LA_SCOPE_ONELEVEL;
   c->iptable_rules_field=strdup("iptableRoles");
+  c->iptable_rules=malloc(sizeof(LdapIptableRoles));
+  la_memset(c->iptable_rules,0,sizeof(LdapIptableRoles));
+  c->iptable_rules->clen=0;
+  c->enable_ldap_iptable=TERN_UNDEF;
   return c;
 }
 
 // 合并iptables链及规则
 void config_iptable_role_merge(LdapIptableRoles *tlp ,ldap_config_keyvalue_t *localrole)
 {
-  if(!tlp) return ;
-  // LdapIptableRoles *tlp=lp->iptable_rules;
+  if(!tlp) return;
   for(int i=0; i<localrole->klen;i++)
   {
     int has_ready=0;
     for(int m=0; m<tlp->clen;m++)
     {
       // 判断有重复，合并规则
+      // LOGINFO("%s",tlp->chains[m].chain_name);
       if(!strcasecmp(localrole->keymaps[i].name,tlp->chains[m].chain_name))
       {
         has_ready=1;
@@ -277,6 +281,8 @@ profile_config_dup( const profile_config_t *c ){
 #ifdef ENABLE_LDAPUSERCONF
   if( c->default_profiledn ) nc->default_profiledn = strdup( c->default_profiledn );
 #endif
+// ldap group
+  if( c->enable_ldap_iptable ) nc->enable_ldap_iptable = c->enable_ldap_iptable ;
 
   return nc;
 }
@@ -397,6 +403,9 @@ config_parse_file( config_t *c){
     }else if( !strcasecmp(tname, "GROUP_MEMBER_ATTR" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
       STRDUP_IFNOTSET(p->member_attribute, ldapconfig->keymaps[i].value[0] );
+    }else if( !strcasecmp(tname, "ENABLE_LDAP_IPTABLE" ) ){
+      // CHECK_IF_IN_PROFILE( arg, in_profile );
+      p->enable_ldap_iptable=string_to_ternary(ldapconfig->keymaps[i].value[0]);
     }else if( !strcasecmp(tname, "IPTABLE_RULES_FIELD" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
       STRDUP_IFNOTSET(p->iptable_rules_field, ldapconfig->keymaps[i].value[0] );
@@ -460,6 +469,7 @@ config_dump( config_t *c){
     {
       LOGDEBUG("  Group Map Fields: %s",char_array_join(p->group_map_field,","));
     }
+    LOGDEBUG_IFSET(ternary_to_string(p->enable_ldap_iptable),"  Enable LDAP Iptable");
     LOGDEBUG_IFSET(p->iptable_rules_field,"  Iptable Rules Field");
     LOGDEBUG( "  Enable PF: %s", ternary_to_string(p->enable_pf));
     LOGDEBUG( "  Default PF rules: %s", p->default_pf_rules ? p->default_pf_rules : "Undefined" );
