@@ -501,14 +501,14 @@ ldap_binddn( LDAP *ldap,config_t *config, const char *username, const char *pass
       break;
     case LDAP_INVALID_CREDENTIALS:
       LOGERROR( "ldap_binddn: Invalid Credentials" );
-      ldap_conn_handle_free(ldap,NULL);
+      // ldap_conn_handle_free(ldap,NULL);
       break;
     case LDAP_SERVER_DOWN:
       LOGERROR( "ldap_binddn: return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
       break;
     default:
       LOGERROR( "ldap_binddn: return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
-      ldap_conn_handle_free(ldap,NULL);
+      // ldap_conn_handle_free(ldap,NULL);
   }
 
   return rc;
@@ -679,6 +679,7 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
         }else{
           res = OPENVPN_PLUGIN_FUNC_SUCCESS;
         }
+        ldap_conn_handle_free(ldap,userdn);
       }
     }
   }
