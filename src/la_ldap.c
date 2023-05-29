@@ -670,6 +670,7 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
 
         /* check if user belong to right groups */
         if( client_context->profile->groupdn && client_context->profile->group_search_filter && client_context->profile->member_attribute ){
+            LOGINFO( "Query user: %s, base groups: %s.", auth_context->username,client_context->profile->groupdn );
             rc = ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
             // if(rc!=LDAP_SUCCESS) return 
             rc = ldap_group_membership( ldap, l, client_context  );
@@ -782,6 +783,6 @@ int ldap_conn_handle_free(LDAP *ldap, char *userdn)
   if( rc != LDAP_SUCCESS ){
     LOGERROR( "ldap_unbind_ext_s return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
   }
-  if( userdn ) free( userdn );
+  check_and_free( userdn );
   return rc;
 }
