@@ -483,7 +483,8 @@ connect_ldap_error:
 int
 ldap_binddn( LDAP *ldap,config_t *config, const char *username, const char *password ){
   int rc;
-  struct berval bv, *servcred = NULL;
+  struct berval bv;
+  //  *servcred = NULL;
 
   if( password && strlen(password) ){
     bv.bv_len = strlen(password);
@@ -491,10 +492,13 @@ ldap_binddn( LDAP *ldap,config_t *config, const char *username, const char *pass
   }else{
     bv.bv_len = 0;
     bv.bv_val = NULL;
+    LOGDEBUG("传入的密码为空")
   }
-  rc = ldap_sasl_bind_s( ldap, username, LDAP_SASL_SIMPLE, &bv, NULL, NULL, &servcred);
-  if( servcred ) ber_bvfree( servcred );
-
+  LOGDEBUG("bind dn %s begining..."%username)
+  rc = ldap_sasl_bind_s( ldap, username, LDAP_SASL_SIMPLE, &bv, NULL, NULL, NULL);
+  LOGDEBUG("bind dn %s success!"%username)
+  // if( servcred ) ber_bvfree( servcred );
+  if( bv ) ber_bvfree( bv );
   switch( rc ){
     case LDAP_SUCCESS:
       LOGINFO( "ldap_sasl_bind_s %s success", config->ldap->binddn ? config->ldap->binddn : "Anonymous" );
