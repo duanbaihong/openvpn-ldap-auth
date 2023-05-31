@@ -484,7 +484,6 @@ int
 ldap_binddn( LDAP *ldap,config_t *config, const char *username, const char *password ){
   int rc;
   struct berval bv;
-  //  *servcred = NULL;
 
   if( password && strlen(password) ){
     bv.bv_len = strlen(password);
@@ -492,13 +491,12 @@ ldap_binddn( LDAP *ldap,config_t *config, const char *username, const char *pass
   }else{
     bv.bv_len = 0;
     bv.bv_val = NULL;
-    LOGDEBUG("传入的密码为空")
+    LOGDEBUG("传入的密码为空");
   }
-  LOGDEBUG("bind dn %s begining..."%username)
+  LOGDEBUG("bind dn %s begining...",username);
   rc = ldap_sasl_bind_s( ldap, username, LDAP_SASL_SIMPLE, &bv, NULL, NULL, NULL);
-  LOGDEBUG("bind dn %s success!"%username)
   // if( servcred ) ber_bvfree( servcred );
-  if( bv ) ber_bvfree( bv );
+  // if( bv ) ber_bvfree( bv );
   switch( rc ){
     case LDAP_SUCCESS:
       LOGINFO( "ldap_sasl_bind_s %s success", config->ldap->binddn ? config->ldap->binddn : "Anonymous" );
@@ -675,6 +673,7 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
         /* check if user belong to right groups */
         if( client_context->profile->groupdn && client_context->profile->group_search_filter && client_context->profile->member_attribute ){
             LOGINFO( "Query user: %s, base groups: %s.", auth_context->username,client_context->profile->groupdn );
+            if(ldap==NULL) return res
             rc = ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
             // if(rc!=LDAP_SUCCESS) return 
             rc = ldap_group_membership( ldap, l, client_context  );
