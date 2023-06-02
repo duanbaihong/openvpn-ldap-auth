@@ -672,8 +672,10 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
 
         /* check if user belong to right groups */
         if( client_context->profile->groupdn && client_context->profile->group_search_filter && client_context->profile->member_attribute ){
-            LOGINFO( "Query user: %s, base groups: %s.", auth_context->username,client_context->profile->groupdn );
-            if(ldap==NULL) return res
+            if(ldap==NULL) {
+              LOGERROR( "LDAP conn handle is lost, Reconnect to ldap server %s", config->ldap->uri );
+              ldap = connect_ldap( l );
+            };
             rc = ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
             // if(rc!=LDAP_SUCCESS) return 
             rc = ldap_group_membership( ldap, l, client_context  );
