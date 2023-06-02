@@ -357,7 +357,8 @@ ldap_find_user_for_profile( LDAP *ldap, ldap_context_t *ldap_context, const char
     /* finally, if a DN was returned, free it */
     ldap_memfree( dn );
   }
-  if( search_filter ) free( search_filter );
+  FREE_IF_NOT_NULL(search_filter);
+  // if( search_filter ) free( search_filter );
   return userdn;
 
 }
@@ -394,8 +395,8 @@ ldap_find_user( LDAP *ldap, ldap_context_t *ldap_context, const char *username, 
       p = item->data;
       userdn = ldap_find_user_for_profile( ldap, ldap_context, username, p );
       if( userdn ){
-        if( cc->user_dn ) la_free( cc->user_dn );
-        cc->user_dn = strdup( userdn );
+        FREE_IF_NOT_NULL( cc->user_dn );
+        cc->user_dn = userdn;
         cc->profile = p;
         break;
       }
@@ -611,7 +612,7 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
   }
   /* free the returned result */
   if ( result != NULL ) ldap_msgfree( result );
-  if( search_filter ) free( search_filter );
+  FREE_IF_NOT_NULL( search_filter ) ;
   return res;
 }
 
