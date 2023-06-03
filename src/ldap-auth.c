@@ -377,21 +377,23 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
     /* nothing done for now
      * potentially, session could be logged
      */
-    LOGINFO("exit status code: %d",OPENVPN_PLUGIN_CLIENT_DISCONNECT);
+    LOGINFO("Received disconnection signal OPENVPN_ PLUGIN_ CLIENT_ DISCONNECT:  %d",OPENVPN_PLUGIN_CLIENT_DISCONNECT);
     return OPENVPN_PLUGIN_FUNC_SUCCESS;
   }
 #endif
   else if(type == OPENVPN_PLUGIN_LEARN_ADDRESS){
     client_context_t *cc = per_client_context;
     LOGINFO("PLUGIN_LEARN_ADDRESS:%s %s", argv[1],argv[2]);
-    if(cc->user_dn){
-      LOGINFO("client user_dn:%s",cc->user_dn);
-    }
-    if(cc->group_len>0){
-      LOGINFO("client group lenght:%s",cc->group_len);
-      for(int i=0; i<cc->group_len; i++){
-        LOGINFO("client group name:%s",cc->groups[i].groupname);
-        LOGINFO("client group description:%s",cc->groups[i].description);
+    if(cc){
+      if(cc->user_dn){
+        LOGINFO("client user_dn:%s",cc->user_dn);
+      }
+      if(cc->group_len>0){
+        LOGINFO("client group lenght:%d",cc->group_len);
+        for(int i=0; i<cc->group_len; i++){
+          LOGINFO("client group name:%s",cc->groups[i].groupname);
+          LOGINFO("client group description:%s",cc->groups[i].description);
+        }
       }
     }
     if(string_array_len(argv)>1){
@@ -424,16 +426,14 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         // 取出原数据
         if(ByValueLeaveVpnQueue(ConnVpnQueue_r,ip,&old_value))
         {
-          LOGINFO("test:%s",old_value->group_len);
           la_learn_roles_delete(old_value);
         }
-        LOGINFO("%s","test");
         // 更新新数据
         new_value=malloc(sizeof(VpnData));
         new_value->ip=strdup(ip);
         new_value->username=strdup((char *)argv[3]);
         new_value->group_len=cc->group_len;
-        new_value->groups=cc->groups;
+        new_value->groups=(VpnConnGroups *)cc->groups;
         if(JoinVpnQueue(ConnVpnQueue_r,new_value))
         {
           LOGINFO("Join current ip [%s] and username [%s] connection data to the queue successfully, current queue num: %d",
@@ -459,6 +459,7 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
                   cleanvalue->ip,
                   getVpnQueueLength(ConnVpnQueue_r));
           FreeConnVPNDataMem(cleanvalue);
+          client_context_free( cc );
         }
       }
 
@@ -570,6 +571,6 @@ openvpn_plugin_client_constructor_v1( openvpn_plugin_handle_t handle){
 OPENVPN_EXPORT void
 openvpn_plugin_client_destructor_v1( openvpn_plugin_handle_t handle, void *per_client_context ){
   client_context_t *cc = per_client_context;
-  LOGINFO("The current user %s is disconnected from the server. userid: %s",cc->user_dn ,cc->user_id);
-  client_context_free( cc );
+  LOGINFO("The current user %s is disconnected from the client. ldap dn: %s" ,cc->user_id,cc->user_dn);
+  //client_context_free( cc );
 }

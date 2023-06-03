@@ -130,6 +130,7 @@ bool ByValueLeaveVpnQueue(ConnQueue *CQ, char *ip, VpnData **returndata)
     if(CQ->front==CQ->rear) return false;
     ConnNode *tmp = CQ->front->next;
     ConnNode *predata=NULL;
+    LOGINFO("test");
     while(tmp)
     {
         if (!strcmp(tmp->data->ip, ip)) 

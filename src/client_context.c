@@ -53,12 +53,12 @@ client_context_free (struct client_context *cc) {
     return;
   FREE_IF_NOT_NULL (cc->user_id);
   FREE_IF_NOT_NULL (cc->user_dn);
-  // for(int i=0;i<cc->group_len;i++ )
-  // {
-	// FREE_IF_NOT_NULL (cc->groups[i].groupname);
-	// FREE_IF_NOT_NULL (cc->groups[i].description);
-  // }
-  // cc->group_len=0;
+  for(int i=0;i<cc->group_len;i++ )
+  {
+	FREE_IF_NOT_NULL (cc->groups[i].groupname);
+	FREE_IF_NOT_NULL (cc->groups[i].description);
+  }
+  cc->group_len=0;
   // FREE_IF_NOT_NULL (cc->groups);
 #ifdef ENABLE_LDAPUSERCONF
     if( cc->ldap_account != NULL ) ldap_account_free( cc->ldap_account );
