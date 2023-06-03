@@ -386,13 +386,13 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
     LOGINFO("PLUGIN_LEARN_ADDRESS:%s %s", argv[1],argv[2]);
     if(cc){
       if(cc->user_dn){
-        LOGINFO("client user_dn:%s",cc->user_dn);
+        LOGINFO("Client user_dn:%s",cc->user_dn);
       }
       if(cc->group_len>0){
-        LOGINFO("client group lenght:%d",cc->group_len);
+        LOGINFO("Client group lenght:%d",cc->group_len);
         for(int i=0; i<cc->group_len; i++){
-          LOGINFO("client group name:%s",cc->groups[i].groupname);
-          LOGINFO("client group description:%s",cc->groups[i].description);
+          LOGINFO("Client group name:%s",cc->groups[i].groupname);
+          LOGINFO("Client group description:%s",cc->groups[i].description);
         }
       }
     }
@@ -459,7 +459,7 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
                   cleanvalue->ip,
                   getVpnQueueLength(ConnVpnQueue_r));
           FreeConnVPNDataMem(cleanvalue);
-          client_context_free( cc );
+          // client_context_free( cc );
         }
       }
 
