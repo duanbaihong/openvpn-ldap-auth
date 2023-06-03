@@ -571,6 +571,7 @@ openvpn_plugin_client_constructor_v1( openvpn_plugin_handle_t handle){
 OPENVPN_EXPORT void
 openvpn_plugin_client_destructor_v1( openvpn_plugin_handle_t handle, void *per_client_context ){
   client_context_t *cc = per_client_context;
-  LOGINFO("The current user %s is disconnected from the client. ldap dn: %s" ,cc->user_id,cc->user_dn);
+  if(cc->user_dn)
+    LOGINFO("The current user %s is disconnected from the client. ldap dn: %s" ,cc->user_id,cc->user_dn);
   //client_context_free( cc );
 }
