@@ -377,7 +377,7 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
     /* nothing done for now
      * potentially, session could be logged
      */
-    LOGINFO("Received disconnection signal OPENVPN_ PLUGIN_ CLIENT_ DISCONNECT:  %d",OPENVPN_PLUGIN_CLIENT_DISCONNECT);
+    LOGINFO("Received disconnection signal OPENVPN_PLUGIN_CLIENT_DISCONNECT:  %d",OPENVPN_PLUGIN_CLIENT_DISCONNECT);
     return OPENVPN_PLUGIN_FUNC_SUCCESS;
   }
 #endif
@@ -448,9 +448,9 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
       }
       else if(!strcasecmp(argv[1],"delete")) 
       {
-        LOGINFO("exit status code: %d",OPENVPN_PLUGIN_CLIENT_DISCONNECT);
         VpnData *cleanvalue;
         char *ip = (char *)argv[2];
+        LOGINFO("The current IP %s has exited: %d,action type OPENVPN_PLUGIN_CLIENT_DISCONNECT: %d ",ip,OPENVPN_PLUGIN_CLIENT_DISCONNECT);
         if(ByValueLeaveVpnQueue(ConnVpnQueue_r,ip,&cleanvalue))
         {
           la_learn_roles_delete(cleanvalue);
