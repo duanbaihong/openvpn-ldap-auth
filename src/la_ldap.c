@@ -396,7 +396,7 @@ ldap_find_user( LDAP *ldap, ldap_context_t *ldap_context, const char *username, 
       userdn = ldap_find_user_for_profile( ldap, ldap_context, username, p );
       if( userdn ){
         FREE_IF_NOT_NULL( cc->user_dn );
-        cc->user_dn = userdn;
+        cc->user_dn = strdup(userdn);
         cc->profile = p;
         break;
       }

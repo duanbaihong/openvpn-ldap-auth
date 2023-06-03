@@ -22,6 +22,7 @@
 
 #include "client_context.h"
 #include "utils.h"
+#include "queue.h"
 
 #ifdef ENABLE_LDAPUSERCONF
 #include "ldap_profile.h"
@@ -30,31 +31,39 @@
 
 struct client_context *
 client_context_new (void) {
-	struct client_context *cc;
-	cc = la_malloc (sizeof (struct client_context));
-	if (cc)
-		la_memset (cc, 0, sizeof (struct client_context));
+  struct client_context *cc;
+  cc = la_malloc (sizeof (struct client_context));
+  if (cc)
+  {
+    la_memset (cc, 0, sizeof (struct client_context));
+    cc->group_len=0;
+    cc->groups=NULL;
+  }
 #ifdef ENABLE_LDAPUSERCONF
   if( ( cc->ldap_account = ldap_account_new( ) ) == NULL ){
     client_context_free( cc );
     cc = NULL;
   }
 #endif
-	return cc;
+  return cc;
 }
 void
 client_context_free (struct client_context *cc) {
-	if (cc == NULL)
-		return;
-	FREE_IF_NOT_NULL (cc->user_id);
-	FREE_IF_NOT_NULL (cc->user_dn);
-  	FREE_IF_NOT_NULL (cc->groups->groupname);
-  	FREE_IF_NOT_NULL (cc->groups->description);
-  	FREE_IF_NOT_NULL (cc->groups);
+  if (cc == NULL)
+    return;
+  FREE_IF_NOT_NULL (cc->user_id);
+  FREE_IF_NOT_NULL (cc->user_dn);
+  // for(int i=0;i<cc->group_len;i++ )
+  // {
+	// FREE_IF_NOT_NULL (cc->groups[i].groupname);
+	// FREE_IF_NOT_NULL (cc->groups[i].description);
+  // }
+  // cc->group_len=0;
+  // FREE_IF_NOT_NULL (cc->groups);
 #ifdef ENABLE_LDAPUSERCONF
-  	if( cc->ldap_account != NULL ) ldap_account_free( cc->ldap_account );
+    if( cc->ldap_account != NULL ) ldap_account_free( cc->ldap_account );
 #endif
-	FREE_IF_NOT_NULL (cc);
-  	cc=NULL;
+  FREE_IF_NOT_NULL (cc);
+    cc=NULL;
 }
 
