@@ -41,6 +41,7 @@ la_malloc( size_t size ){
 void
 la_free( void *ptr ){
   free( ptr );
+  ptr=NULL;
 }
 
 void *

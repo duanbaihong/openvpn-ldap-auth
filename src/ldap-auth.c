@@ -388,7 +388,7 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
       if(cc->user_dn){
         LOGINFO("Client user_dn:%s",cc->user_dn);
       }
-      if(cc->group_len>0){
+      if(cc->groups && cc->group_len>0){
         LOGINFO("Client group lenght:%d",cc->group_len);
         for(int i=0; i<cc->group_len; i++){
           LOGINFO("Client group name:%s",cc->groups[i].groupname);
@@ -405,7 +405,14 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
           con_value->ip=strdup((char *)argv[2]);
           con_value->username=strdup((char *)argv[3]);
           con_value->group_len=cc->group_len;
-          con_value->groups=cc->groups;
+          if(cc->group_len>0)
+          {
+            con_value->groups=la_malloc(sizeof(VpnConnGroups)*cc->group_len);
+            for(int i=0; i<cc->group_len; i++){
+              con_value->groups[i].groupname=strdup(cc->groups[i].groupname);
+              con_value->groups[i].description=strdup(cc->groups[i].description);
+            }
+          }
           if(JoinVpnQueue(ConnVpnQueue_r,con_value))
           {
             LOGINFO("Join current ip [%s] and username [%s] connection data to the queue successfully, current queue num: %d",
@@ -433,7 +440,14 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         new_value->ip=strdup(ip);
         new_value->username=strdup((char *)argv[3]);
         new_value->group_len=cc->group_len;
-        new_value->groups=(VpnConnGroups *)cc->groups;
+        if(cc->group_len>0)
+        {
+          new_value->groups=la_malloc(sizeof(VpnConnGroups)*cc->group_len);
+          for(int i=0; i<cc->group_len; i++){
+            new_value->groups[i].groupname=strdup(cc->groups[i].groupname);
+            new_value->groups[i].description=strdup(cc->groups[i].description);
+          }
+        }
         if(JoinVpnQueue(ConnVpnQueue_r,new_value))
         {
           LOGINFO("Join current ip [%s] and username [%s] connection data to the queue successfully, current queue num: %d",
@@ -536,7 +550,9 @@ action_thread_main_loop (void *c)
             LOGINFO ( "Authentication requested for user %s",
                       ((auth_context_t *)action->context)->username);
           }
+          pthread_mutex_lock(&((client_context_t *)action->client_context)->mutex);
           rc = la_ldap_handle_authentication( context, action );
+          pthread_mutex_unlock(&((client_context_t *)action->client_context)->mutex);
           /* we need to write the result to  auth_control_file */
           if( DODEBUG(context->verb ) ){
             LOGDEBUG( "User %s: Writing %c to auth_control_file %s",
@@ -564,6 +580,7 @@ action_thread_main_loop (void *c)
 
 OPENVPN_EXPORT void *
 openvpn_plugin_client_constructor_v1( openvpn_plugin_handle_t handle){
+  LOGINFO("New client connection initial." );
   client_context_t *cc = client_context_new( );
   return (void *)cc;
 }
@@ -573,5 +590,7 @@ openvpn_plugin_client_destructor_v1( openvpn_plugin_handle_t handle, void *per_c
   client_context_t *cc = per_client_context;
   if(cc->user_dn)
     LOGINFO("The current user %s is disconnected from the client. ldap dn: %s" ,cc->user_id,cc->user_dn);
-  //client_context_free( cc );
+  pthread_mutex_lock(&cc->mutex);
+  client_context_free( cc );
+  pthread_mutex_unlock(&cc->mutex);
 }

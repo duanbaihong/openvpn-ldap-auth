@@ -35,6 +35,7 @@ typedef struct client_context {
 #endif
   int  group_len;
   struct Vpn_Conn_Groups_t *groups;
+  pthread_mutex_t mutex;
 } client_context_t;
 
 

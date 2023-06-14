@@ -330,7 +330,6 @@ ldap_account_load_from_dn( ldap_context_t *ldap_context, LDAP *ldap, char *dn, c
   if( is_account ){
     if( account->profile_dn ){
       la_free( account->profile_dn );
-      account->profile_dn = NULL;
     }
     if( ( vals = ldap_get_values_len( ldap, e, "ovpnprofile" ) ) ){
       if ( ldap_count_values_len( vals ) > 0 ){

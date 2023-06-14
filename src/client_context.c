@@ -45,6 +45,7 @@ client_context_new (void) {
     cc = NULL;
   }
 #endif
+  pthread_mutex_init(&cc->mutex, NULL);
   return cc;
 }
 void
@@ -59,11 +60,10 @@ client_context_free (struct client_context *cc) {
 	FREE_IF_NOT_NULL (cc->groups[i].description);
   }
   cc->group_len=0;
-  // FREE_IF_NOT_NULL (cc->groups);
+  FREE_IF_NOT_NULL (cc->groups);
 #ifdef ENABLE_LDAPUSERCONF
     if( cc->ldap_account != NULL ) ldap_account_free( cc->ldap_account );
 #endif
   FREE_IF_NOT_NULL (cc);
-    cc=NULL;
 }
 

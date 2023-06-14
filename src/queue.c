@@ -64,7 +64,8 @@ bool ExistVpnQueue(ConnQueue *CQ,VpnData *value){
 bool JoinVpnQueue(ConnQueue *CQ,VpnData *value){
     if (ExistVpnQueue(CQ,value)) 
     {
-        LOGWARNING("already have ip value [%s].",value->ip);
+        LOGWARNING("already have ip value [%s].not add queue.",value->ip);
+        FreeConnVPNDataMem(value);
         return false;
     }
     ConnNode *p = (ConnNode *)malloc(sizeof(ConnNode));
