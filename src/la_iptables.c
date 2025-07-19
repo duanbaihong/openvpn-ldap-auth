@@ -21,7 +21,7 @@ int la_learn_roles_add(VpnData *vdata)
   int ret=-1;
   for(int i=0;i<vdata->group_len;i++ )
   {
-    char *desc=vdata->groups[i].description!=NULL?vdata->groups[i].description:"\0";
+    char *desc=vdata->groups[i].description!=NULL?vdata->groups[i].description:strcpy(cc->groups[i].description, "");
     int len=strlen(IPT_RULES_FMT)+strlen(vdata->ip)+strlen(vdata->username)+strlen(vdata->groups[i].groupname)+strlen(desc);
     char rules_item[len];
     sprintf(rules_item,IPT_RULES_FMT,vdata->ip,vdata->groups[i].groupname,vdata->username,desc);
@@ -40,7 +40,7 @@ int la_learn_roles_delete(VpnData *vdata)
   int ret=-1;
   for(int i=0;i<vdata->group_len;i++)
   {
-    char *desc=vdata->groups[i].description!=NULL?vdata->groups[i].description:"\0";
+    char *desc=vdata->groups[i].description!=NULL?vdata->groups[i].description:strcpy(cc->groups[i].description, "");
     int len=strlen(IPT_RULES_FMT)+strlen(vdata->ip)+strlen(vdata->username)+strlen(vdata->groups[i].groupname)+strlen(desc);
     char rules_item[len];
     sprintf(rules_item,IPT_RULES_FMT,vdata->ip,vdata->groups[i].groupname,vdata->username,desc);

@@ -606,7 +606,7 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
         ldap_memfree( attr );
       }
       if(cc->groups[group_num].description==NULL){
-        cc->groups[group_num].description="\0";
+        strcpy(cc->groups[group_num].description, "");
       }
       group_num++;
       if(ber != NULL) ber_free(ber, 0);
