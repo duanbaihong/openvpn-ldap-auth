@@ -62,7 +62,6 @@ bool ExistVpnQueue(ConnQueue *CQ,VpnData *value){
 }
 //加入到队列尾
 bool JoinVpnQueue(ConnQueue *CQ,VpnData *value){
-    pthread_mutex_lock(&action_mutex);
     if (ExistVpnQueue(CQ,value)) 
     {
         LOGWARNING("already have ip value [%s].not add queue.",value->ip);
@@ -75,12 +74,10 @@ bool JoinVpnQueue(ConnQueue *CQ,VpnData *value){
     CQ->rear->next=p;
     CQ->rear=p;
     CQ->len++;
-    pthread_mutex_unlock(&action_mutex);
     return true;
 }
 //加入到队列前
 bool JoinBeforeVpnQueue(ConnQueue *CQ,VpnData *value){
-    pthread_mutex_lock(&action_mutex);
     if (ExistVpnQueue(CQ,value)) 
     {
         LOGWARNING("already have ip value [%s].",value->ip);
@@ -91,13 +88,11 @@ bool JoinBeforeVpnQueue(ConnQueue *CQ,VpnData *value){
     p->next=CQ->front->next;
     CQ->front->next=p;
     CQ->len++;
-    pthread_mutex_unlock(&action_mutex);
     return true;
 }
 //更新队列
 bool UpdateOrJoinVpnQueue(ConnQueue *CQ,VpnData *value){
     ConnNode *t=CQ->front->next;
-    pthread_mutex_lock(&action_mutex);
     // 遍历队列，如果有重复，就更新，没有就在队列尾添加。
     while(t)
     {
@@ -116,20 +111,17 @@ bool UpdateOrJoinVpnQueue(ConnQueue *CQ,VpnData *value){
     CQ->rear->next=p;
     CQ->rear=p;
     CQ->len++;
-    pthread_mutex_unlock(&action_mutex);
     return true;
 }
 //从队列前面取出队列
 bool LeaveVpnQueue(ConnQueue *CQ,VpnData **returndata){
     if(CQ->front==CQ->rear) return false;
-    pthread_mutex_lock(&action_mutex);
     ConnNode *p=CQ->front->next;
     (*returndata)=p->data;
     CQ->front->next=p->next;
     if(p->next==NULL) CQ->rear=CQ->front;
     CQ->len--;
     check_and_free(p);
-    pthread_mutex_unlock(&action_mutex);
     return true;
 }
 //按IP值取出队列项
@@ -139,7 +131,6 @@ bool ByValueLeaveVpnQueue(ConnQueue *CQ, char *ip, VpnData **returndata)
     if(CQ->front==CQ->rear) return false;
     ConnNode *tmp = CQ->front->next;
     ConnNode *predata=NULL;
-    pthread_mutex_lock(&action_mutex);
     while(tmp)
     {
         if (!strcmp(tmp->data->ip, ip)) 
@@ -173,7 +164,6 @@ bool ByValueLeaveVpnQueue(ConnQueue *CQ, char *ip, VpnData **returndata)
             tmp = tmp->next;
         }
     }
-    pthread_mutex_unlock(&action_mutex);
     return false;
 }
 //队列元素个数
