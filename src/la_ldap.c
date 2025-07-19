@@ -578,6 +578,8 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
     int group_num=0;
     cc->group_len=nbrow;
     cc->groups=la_malloc(sizeof(VpnConnGroups)*nbrow);
+    cc->groups[group_num].groupname=NULL;
+    cc->groups[group_num].description=NULL;
     for (entry = ldap_first_entry(ldap, result); entry != NULL; entry = ldap_next_entry(ldap, entry))
     {
       BerElement *ber=NULL;
@@ -604,9 +606,6 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
           }
         }
         ldap_memfree( attr );
-      }
-      if(cc->groups[group_num].description==NULL){
-        strcpy(cc->groups[group_num].description, "");
       }
       group_num++;
       if(ber != NULL) ber_free(ber, 0);
