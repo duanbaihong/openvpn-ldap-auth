@@ -551,7 +551,6 @@ action_thread_main_loop (void *c)
                       ((auth_context_t *)action->context)->username);
           }
           pthread_mutex_lock(&((client_context_t *)action->client_context)->mutex);
-          pthread_cond_wait(&action_cond,&((client_context_t *)action->client_context)->mutex);
           rc = la_ldap_handle_authentication( context, action );
           pthread_mutex_unlock(&((client_context_t *)action->client_context)->mutex);
           /* we need to write the result to  auth_control_file */
@@ -592,7 +591,6 @@ openvpn_plugin_client_destructor_v1( openvpn_plugin_handle_t handle, void *per_c
   if(cc->user_dn)
     LOGINFO("The current user %s is disconnected from the client. ldap dn: %s" ,cc->user_id,cc->user_dn);
   pthread_mutex_lock(&cc->mutex);
-  pthread_cond_wait(&action_cond,&cc->mutex);
   client_context_free( cc );
   pthread_mutex_unlock(&cc->mutex);
 }
