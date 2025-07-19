@@ -590,14 +590,11 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
             vals=ldap_get_values_len(ldap,entry,attr);
             if(vals!=NULL)
             {
-              // 初始化组的默认值，避免空指针
-              cc->groups[group_num].groupname=""
-              cc->groups[group_num].description=""
               if(!strcasecmp(attr,p->group_map_field[0]))
               {
                 cc->groups[group_num].groupname=strdup(vals[0]->bv_val);
               }
-              if(!strcasecmp(attr,"description"))
+              if(!strcasecmp(attr,"description") && vals[0]->bv_val!=NULL)
               {
                 cc->groups[group_num].description = strdup(vals[0]->bv_val);
               }
@@ -607,6 +604,9 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
           }
         }
         ldap_memfree( attr );
+      }
+      if(cc->groups[group_num].description==NULL){
+        cc->groups[group_num].description="\0";
       }
       group_num++;
       if(ber != NULL) ber_free(ber, 0);
