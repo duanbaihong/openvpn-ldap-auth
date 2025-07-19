@@ -594,7 +594,7 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
               {
                 cc->groups[group_num].groupname=strdup(vals[0]->bv_val);
               }
-              if(!strcasecmp(attr,"description") && vals[0]->bv_val!=NULL)
+              if(!strcasecmp(attr,"description"))
               {
                 cc->groups[group_num].description = strdup(vals[0]->bv_val);
               }
