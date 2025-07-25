@@ -595,7 +595,8 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
               if(!strcasecmp(attr,p->group_map_field[0]))
               {
                 cc->groups[group_num].groupname=strdup(vals[0]->bv_val);
-              } else if(!strcasecmp(attr,"description"))
+              }
+              if(!strcasecmp(attr,"description"))
               {
                 cc->groups[group_num].description = strdup(vals[0]->bv_val);
               }
@@ -626,32 +627,30 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
 }
 
 int
-la_ldap_handle_authentication(ldap_context_t *l, action_t *a) {
+la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
   LDAP *ldap = NULL;
   config_t *config = l->config;
   auth_context_t *auth_context = a->context;
   client_context_t *client_context = a->client_context;
   char *userdn = NULL;
+  int rc;
   int res = OPENVPN_PLUGIN_FUNC_ERROR;
 
-  /* 1. Establish LDAP connection */
-  if ((ldap = connect_ldap(l)) == NULL) {
-    LOGERROR("Connection failed to URI: %s", config->ldap->uri);
-    goto cleanup;
+  /* Connection to LDAP backend */
+  ldap = connect_ldap( l );
+  if( ldap == NULL ){
+    LOGERROR( "Could not connect to URI %s", config->ldap->uri );
+    return res;
   }
-  /* 2. Initial bind with service account */
-  int rc = ldap_binddn(ldap, config, config->ldap->binddn, config->ldap->bindpw);
-  if (rc != LDAP_SUCCESS) {
-    LOGERROR("Initial bind failed for DN: %s (%s)", 
-            config->ldap->binddn ? config->ldap->binddn : "Anonymous",
-            ldap_err2string(rc));
-    goto cleanup;
-  }
+  /* bind to LDAP server anonymous or authenticated */
+  rc=ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
+  if( rc != LDAP_SUCCESS ) return res;
   /* find user and return userdn */
-  /* 3. Find user DN */
-  if ((userdn = ldap_find_user(ldap, l, auth_context->username, client_context)) == NULL) {
-    LOGWARNING("User lookup failed for: %s", auth_context->username);
-    goto cleanup;
+  userdn = ldap_find_user( ldap, l, auth_context->username, client_context );
+  if( !userdn ){
+    LOGWARNING( "LDAP user *%s* was not found", auth_context->username );
+    ldap_conn_handle_free(ldap,userdn);
+    return res;
   }
 
   if (auth_context && l->config ){
@@ -659,13 +658,11 @@ la_ldap_handle_authentication(ldap_context_t *l, action_t *a) {
       if (DOINFO (l->verb)) {
           LOGINFO ("LDAP-AUTH: Authenticating Username:%s", auth_context->username );
       }
-      /* 4. Authenticate user credentials */
-      rc = ldap_binddn(ldap, config, userdn, auth_context->password);
-      if (rc != LDAP_SUCCESS) {
-        LOGERROR("Authentication failed for %s: %s", 
-                auth_context->username, 
-                ldap_err2string(rc));
-        goto cleanup;
+      rc = ldap_binddn( ldap, config, userdn, auth_context->password );
+      if( rc != LDAP_SUCCESS ){
+        // LOGERROR( "rebinding: return value: %d/0x%2X %s", rc, rc, ldap_err2string( rc ) );
+        ldap_conn_handle_free(ldap,userdn);
+        return res;
       }else{
         /* success, let set our return value to SUCCESS */
         if( DOINFO( l->verb ) )
@@ -701,71 +698,75 @@ la_ldap_handle_authentication(ldap_context_t *l, action_t *a) {
         }
         ldap_conn_handle_free(ldap,userdn);
       }
-
-      /* 5. Post-authentication handling */
-#ifdef ENABLE_LDAPUSERCONF
-      if (ldap_post_auth_handling(l, ldap, userdn, client_context) != 0) {
-        goto cleanup;
-      }
-#endif
-
-      /* 6. Group membership verification */
-      res = verify_group_membership(l, ldap, client_context);
-      
-cleanup:
-  /* 7. Centralized cleanup */
-  ldap_conn_handle_free(ldap, userdn);
+    }
+  }
   return res;
 }
 
-/* Helper function for post-authentication tasks */
-#ifdef ENABLE_LDAPUSERCONF
-static int ldap_post_auth_handling(ldap_context_t *l, LDAP *ldap, 
-                                  char *userdn, client_context_t *cc) {
-  /* Load user settings from LDAP profile */
-  ldap_account_load_from_dn(l, ldap, userdn, cc);
-  
-  /* Validate account timeframe */
-  if (ldap_profile_handle_allowed_timeframe(cc->ldap_account->profile) != 0) {
-    LOGERROR("Account timeframe validation failed for %s", cc->user_id);
-    return 1;
+// 
+int config_load_ldap_groups_profiles(ldap_context_t *l)
+{
+  LDAP *ldap = NULL;
+  LDAPMessage *result = NULL;
+  struct timeval timeout;
+  config_t *config = l->config;
+  profile_config_t *lp = config->profiles->first->data;
+  int ldap_scope = LA_SCOPE_ONELEVEL;
+  int rc = 0;
+  char *attrs[ldap_array_len(lp->group_map_field)+2];
+  int i=0;
+  while(lp->group_map_field[i]!=NULL)
+  {
+    attrs[i]=lp->group_map_field[i];
+    i++;
   }
-  
-  if (DODEBUG(l->verb)) {
-    ldap_account_dump(cc->ldap_account);
+  attrs[i]=lp->iptable_rules_field?lp->iptable_rules_field:"iptableItems";
+  attrs[++i]=NULL;
+  /* Connection to LDAP backend */
+  ldap = connect_ldap( l );
+  la_ldap_set_timeout( config, &timeout );
+  if( ldap == NULL ){
+    LOGERROR( "Could not connect to URI %s", config->ldap->uri );
+    return rc;
   }
-  return 0;
-}
-#endif
+  /* bind to LDAP server anonymous or authenticated */
+  rc = ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
+  if( rc == LDAP_SUCCESS ){
+    ldap_scope = la_ldap_config_search_scope_to_ldap( lp->search_scope );
+    rc = ldap_search_ext_s( ldap, lp->groupdn, ldap_scope, lp->group_search_filter, attrs, 0, NULL, NULL, &timeout, 1000, &result );
+    if( rc == LDAP_SUCCESS ){
+      /* Check how many entries were found. Only one should be returned */
+      int nbrow = ldap_count_entries( ldap, result );
+      LDAPMessage *entry;
+      char *attr;
+      int group_num=0;
+      // lp->iptable_groups_len=nbrow;
+      LdapIptableRoles *iptablerules;
+      iptablerules=la_malloc(sizeof(LdapIptableRoles));
+      la_memset(iptablerules,0,sizeof(LdapIptableRoles));
+      // lp->iptable_rules
+      iptablerules->clen=nbrow;
+      iptablerules->chains=la_malloc(sizeof(IptableChainItems)*nbrow);
+      la_memset(iptablerules->chains,0,sizeof(IptableChainItems)*nbrow);
+      for (entry = ldap_first_entry(ldap, result); entry != NULL; entry = ldap_next_entry(ldap, entry))
+      {
+        BerElement *ber=NULL;
+        for(attr=ldap_first_attribute(ldap,entry,&ber);attr!=NULL;attr=ldap_next_attribute(ldap,entry,ber))
+        {
+          struct berval **vals;
+          vals=ldap_get_values_len(ldap,entry,attr);
 
-/* Helper function for group membership check */
-static int verify_group_membership(ldap_context_t *l, LDAP *ldap,
-                                  client_context_t *cc) {
-  if (cc->profile->groupdn && 
-      cc->profile->group_search_filter && 
-      cc->profile->member_attribute) {
-        
-    /* Re-establish connection if lost */
-    if (ldap == NULL) {
-      LOGDEBUG("Reconnecting to LDAP server");
-      if ((ldap = connect_ldap(l)) == NULL) {
-        LOGERROR("Reconnection failed");
-        return OPENVPN_PLUGIN_FUNC_ERROR;
-      }
-      
-      if (ldap_binddn(ldap, l->config, 
-                     l->config->ldap->binddn, 
-                     l->config->ldap->bindpw) != LDAP_SUCCESS) {
-        ldap_conn_handle_free(ldap, NULL);
-        return OPENVPN_PLUGIN_FUNC_ERROR;
-      }
-    }
-
-    if (ldap_group_membership(ldap, l, cc) != 0) {
-      LOGWARNING("Group membership check failed for %s", cc->user_id);
-      return OPENVPN_PLUGIN_FUNC_ERROR;
-    }
-  }
+          if(vals!=NULL)
+          {
+            int count=0;
+            count=ldap_count_values_len(vals);
+            if(!strcasecmp(attr,lp->group_map_field[0]))
+            {
+              iptablerules->chains[group_num].rule_len=0;
+              iptablerules->chains[group_num].chain_name=strdup(vals[0]->bv_val);
+            }
+            if(!strcasecmp(attr,lp->iptable_rules_field))
+            {
               iptablerules->chains[group_num].rule_len=count;
               iptablerules->chains[group_num].rule_item=(char **)malloc(sizeof(char *) * count);
               la_memset(iptablerules->chains[group_num].rule_item,0,sizeof(char *) * count);
