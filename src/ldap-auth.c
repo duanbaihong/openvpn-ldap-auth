@@ -444,6 +444,7 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         {
           new_value->groups=la_malloc(sizeof(VpnConnGroups)*cc->group_len);
           for(int i=0; i<cc->group_len; i++){
+            LOGDEBUG("Group index %d,groupname: %s ,description: %s",i,cc->groups[i].groupname,cc->groups[i].description);
             new_value->groups[i].groupname=strdup(cc->groups[i].groupname);
             new_value->groups[i].description=strdup(cc->groups[i].description);
           }
