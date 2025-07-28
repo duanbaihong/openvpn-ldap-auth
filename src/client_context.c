@@ -41,7 +41,7 @@ client_context_new (void) {
   }
 #ifdef ENABLE_LDAPUSERCONF
   if( ( cc->ldap_account = ldap_account_new( ) ) == NULL ){
-    client_context_free( cc );
+  ( cc );
     cc = NULL;
   }
 #endif
@@ -64,6 +64,6 @@ client_context_free (struct client_context *cc) {
 #ifdef ENABLE_LDAPUSERCONF
     if( cc->ldap_account != NULL ) ldap_account_free( cc->ldap_account );
 #endif
-  FREE_IF_NOT_NULL (cc);
+  // FREE_IF_NOT_NULL (cc);
 }
 

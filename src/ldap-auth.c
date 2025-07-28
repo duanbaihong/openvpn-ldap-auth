@@ -65,7 +65,7 @@
 #include "client_context.h"
 #include "ldap_profile.h"
 
-#include <unistd.h> 
+// #include <unistd.h> 
 
 #define DFT_REDIRECT_GATEWAY_FLAGS "def1 bypass-dhcp"
 #define OCONFIG "/etc/openvpn/openvpn-ldap.yaml"
@@ -386,18 +386,21 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
   else if(type == OPENVPN_PLUGIN_LEARN_ADDRESS){
     client_context_t *cc = per_client_context;
     LOGINFO("PLUGIN_LEARN_ADDRESS:%s %s", argv[1],argv[2]);
-    if(cc){
-      if(cc->user_dn){
-        LOGINFO("Client user_dn:%s",cc->user_dn);
-      }
+    if(cc && cc->user_dn){
+      LOGINFO("Client user_dn:%s",cc->user_dn);
+      pthread_mutex_lock(&cc->mutex);
       if(cc->groups && cc->group_len>0){
         LOGINFO("Client group lenght:%d",cc->group_len);
         for(int i=0; i<cc->group_len; i++){
-          LOGINFO("Client group name:%s",cc->groups[i].groupname);
-          LOGINFO("Client group description:%s",cc->groups[i].description);
+            const char *groupname = (cc->groups[i].groupname != NULL) ? cc->groups[i].groupname : "N/A";
+            const char *description = (cc->groups[i].description != NULL) ? cc->groups[i].description : "N/A";
+            LOGINFO("Client group name:%s", groupname);
+            LOGINFO("Client group description:%s", description);
         }
       }
+      pthread_mutex_unlock(&cc->mutex);
     }
+    LOGINFO("test111");
     if(string_array_len(argv)>1){
       if(!strcasecmp(argv[1],"add")) 
       {
@@ -416,7 +419,6 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
               con_value->groups[i].description=strdup(cc->groups[i].description);
             }
           }
-          sleep(5);
           if(JoinVpnQueue(ConnVpnQueue_r,con_value))
           {
             LOGINFO("Join current ip [%s] and username [%s] connection data to the queue successfully, current queue num: %d",
@@ -481,7 +483,6 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
           // client_context_free( cc );
         }
       }
-
     }
     return OPENVPN_PLUGIN_FUNC_SUCCESS;
   }
@@ -598,4 +599,6 @@ openvpn_plugin_client_destructor_v1( openvpn_plugin_handle_t handle, void *per_c
   pthread_mutex_lock(&cc->mutex);
   client_context_free( cc );
   pthread_mutex_unlock(&cc->mutex);
+  // 调整mutex判断
+  la_free(cc);
 }

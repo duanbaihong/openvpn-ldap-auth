@@ -577,47 +577,49 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
     char *attr;
     int group_num=0;
     cc->group_len=nbrow;
-    cc->groups=la_malloc(sizeof(VpnConnGroups)*nbrow);
-    cc->groups[group_num].groupname=NULL;
-    cc->groups[group_num].description=NULL;
-    for (entry = ldap_first_entry(ldap, result); entry != NULL; entry = ldap_next_entry(ldap, entry))
-    {
+    cc->groups=(VpnConnGroups *) la_malloc(sizeof(VpnConnGroups)*nbrow);
+    for (entry = ldap_first_entry(ldap, result); 
+      entry != NULL; 
+      entry = ldap_next_entry(ldap, entry)
+    ){
       BerElement *ber=NULL;
-      for(attr=ldap_first_attribute(ldap,entry,&ber);attr!=NULL;attr=ldap_next_attribute(ldap,entry,ber))
-      {
-        for(int idx=0;cc->profile->group_map_field[idx]!=NULL;idx++){
-          if(!strcasecmp(attr,cc->profile->group_map_field[idx]))
+      cc->groups[group_num].groupname=NULL;
+      cc->groups[group_num].description=NULL;
+      for(attr=ldap_first_attribute(ldap,entry,&ber);
+        attr!=NULL;
+        attr=ldap_next_attribute(ldap,entry,ber)
+      ){
+        struct berval **vals;
+        vals=ldap_get_values_len(ldap,entry,attr);
+        int vals_count=ldap_count_values_len(vals);
+        if(vals!=NULL && vals_count>0)
+        {
+          if(!strcasecmp(attr,p->group_map_field[0]))
           {
-            struct berval **vals;
-            vals=ldap_get_values_len(ldap,entry,attr);
-            if(vals!=NULL)
-            {
-              if(!strcasecmp(attr,p->group_map_field[0]))
-              {
-                cc->groups[group_num].groupname=strdup(vals[0]->bv_val);
-              } 
-              else if(!strcasecmp(attr,"description"))
-              {
-                cc->groups[group_num].description = strdup(vals[0]->bv_val);
-              }
-              LOGDEBUG("Get profile [%s] value length: %d, current value: %s",attr,vals[0]->bv_len,vals[0]->bv_val);
-            }
-            ldap_value_free_len(vals);
+            cc->groups[group_num].groupname=strndup(vals[0]->bv_val, vals[0]->bv_len);
+          } 
+          else if(!strcasecmp(attr,"description"))
+          {
+            cc->groups[group_num].description =strndup(vals[0]->bv_val, vals[0]->bv_len);
           }
+          LOGDEBUG("Get profile [%s] value length: %d, current value: %s",attr,vals[0]->bv_len,vals[0]->bv_val);
         }
-        ldap_memfree( attr );
+        ldap_value_free_len(vals);
+        // ldap_memfree( attr );
       }
       if(cc->groups[group_num].groupname == NULL){
-        cc->groups[group_num].groupname=strdup("---");
+        cc->groups[group_num].groupname=strdup("N/A");
       }
-
       if(cc->groups[group_num].description == NULL){
-        cc->groups[group_num].description=strdup("---");
+        cc->groups[group_num].description=strdup("N/A");
       }
       group_num++;
-      if(ber != NULL) ber_free(ber, 0);
+      if(ber != NULL) {
+        ber_free(ber, 0);
+        ber=NULL;
+      };
     }
-    ldap_msgfree(entry);
+    // ldap_msgfree(entry);
   }
   /* free the returned result */
   if ( result != NULL ) ldap_msgfree( result );
@@ -771,7 +773,6 @@ int config_load_ldap_groups_profiles(ldap_context_t *l)
               la_memset(iptablerules->chains[group_num].rule_item,0,sizeof(char *) * count);
               for(int i=0;i<count;i++){
                 iptablerules->chains[group_num].rule_item[i] = strdup(vals[i]->bv_val);
-                // LOGINFO("%s\n",vals[i]->bv_val);
               }
             }
             if(DODEBUG(l->verb)) LOGDEBUG("Get LDAP Permission Groups profile [%s] value length: %d, current value: %s",attr,vals[0]->bv_len,vals[0]->bv_val);
