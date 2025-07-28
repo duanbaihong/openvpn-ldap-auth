@@ -65,6 +65,8 @@
 #include "client_context.h"
 #include "ldap_profile.h"
 
+#include <unistd.h> 
+
 #define DFT_REDIRECT_GATEWAY_FLAGS "def1 bypass-dhcp"
 #define OCONFIG "/etc/openvpn/openvpn-ldap.yaml"
 // #define OCONFIG "/etc/openvpn/openvpn-ldap.conf"
@@ -414,6 +416,7 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
               con_value->groups[i].description=strdup(cc->groups[i].description);
             }
           }
+          sleep(5);
           if(JoinVpnQueue(ConnVpnQueue_r,con_value))
           {
             LOGINFO("Join current ip [%s] and username [%s] connection data to the queue successfully, current queue num: %d",
