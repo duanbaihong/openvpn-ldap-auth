@@ -16,7 +16,7 @@
 const char *IPT_RULES_FMT="-p all -s %s -j %s -m comment --comment 'User [%s]=>[%s]'";
 
 // 添加规则
-int la_learn_roles_add(char *ip,char *username,VpnData *vdata)
+int la_learn_roles_add(VpnData *vdata)
 {
   int ret=-1;
   for(int i=0;i<vdata->group_len;i++ )
