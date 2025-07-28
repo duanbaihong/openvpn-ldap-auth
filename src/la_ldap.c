@@ -617,7 +617,6 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
       group_num++;
       if(ber != NULL) ber_free(ber, 0);
     }
-    cc->groups[group_num]=NULL;
     ldap_msgfree(entry);
   }
   /* free the returned result */
