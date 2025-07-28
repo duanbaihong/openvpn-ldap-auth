@@ -163,7 +163,7 @@ void config_init_iptable_rules(LdapIptableRoles *rules)
 int
 ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, char * rule_item)
 {
-  int ret = -1;
+  int ret = -1,len;
   if(!filter_name) return ret;
   char * filename="/usr/bin/sudo -u root";
   char * cmd_argv = NULL;
@@ -173,49 +173,49 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
   {
     case IPTABLE_CREATE_FILTER:
       iptables_cmd="/sbin/iptables -N";
-      int len=snprintf(NULL,0,"%s %s %s",filename,iptables_cmd,filter_name)+1;
+      len=snprintf(NULL,0,"%s %s %s",filename,iptables_cmd,filter_name)+1;
       cmd_argv=la_malloc(len);
       snprintf(cmd_argv,len,"%s %s %s",filename,iptables_cmd,filter_name);
       break;
     case IPTABLE_EMPTY_FILTER:
       iptables_cmd="/sbin/iptables -F";
-      int len=snprintf(NULL,0,"%s %s %s",filename,iptables_cmd,filter_name)+1;
+      len=snprintf(NULL,0,"%s %s %s",filename,iptables_cmd,filter_name)+1;
       cmd_argv=la_malloc(len);
       snprintf(cmd_argv,len,"%s %s %s",filename,iptables_cmd,filter_name);
       break;
     case IPTABLE_DELETE_FILTER:
       iptables_cmd="/sbin/iptables -X";
-      int len=snprintf(NULL,0,"%s %s %s",filename,iptables_cmd,filter_name)+1;
+      len=snprintf(NULL,0,"%s %s %s",filename,iptables_cmd,filter_name)+1;
       cmd_argv=la_malloc(len);
       snprintf(cmd_argv,len,"%s %s %s",filename,iptables_cmd,filter_name);
       break;
     case IPTABLE_APPEND_ROLE:
       iptables_cmd="/sbin/iptables -A";
-      int len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
+      len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
       cmd_argv=la_malloc(len);
       snprintf(cmd_argv,len,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
       break;
     case IPTABLE_INSERT_ROLE:
       iptables_cmd="/sbin/iptables -I";
-      int len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
+      len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
       cmd_argv=la_malloc(len);
       snprintf(cmd_argv,len,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
       break;
     case IPTABLE_DELETE_ROLE:
       iptables_cmd="/sbin/iptables -D";
-      int len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
+      len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
       cmd_argv=la_malloc(len);
       snprintf(cmd_argv,len,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
       break;
     case IPTABLE_INSERT_MASQUERADE_ROLE:
       iptables_cmd="/sbin/iptables -t nat -I";
-      int len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
+      len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
       cmd_argv=la_malloc(len);
       snprintf(cmd_argv,len,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
       break;
     case IPTABLE_DELETE_MASQUERADE_ROLE:
       iptables_cmd="/sbin/iptables -t nat -D";
-      int len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
+      len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
       cmd_argv=la_malloc(len);
       snprintf(cmd_argv,len,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
       break;
