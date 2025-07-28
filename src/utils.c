@@ -38,6 +38,10 @@ la_malloc( size_t size ){
   return malloc( size );
 }
 
+void *
+la_calloc( size_t size ){
+  return calloc(1, size );
+}
 void
 la_free( void *ptr ){
   free( ptr );

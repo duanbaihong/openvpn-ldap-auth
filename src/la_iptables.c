@@ -16,20 +16,42 @@
 const char *IPT_RULES_FMT="-p all -s %s -j %s -m comment --comment 'User [%s]=>[%s]'";
 
 // 添加规则
-int la_learn_roles_add(VpnData *vdata)
+int la_learn_roles_add(char *ip,char *username,VpnData *vdata)
 {
   int ret=-1;
   for(int i=0;i<vdata->group_len;i++ )
   {
     char *desc=vdata->groups[i].description!=NULL?vdata->groups[i].description:"";
-    int len=strlen(IPT_RULES_FMT)+strlen(vdata->ip)+strlen(vdata->username)+strlen(vdata->groups[i].groupname)+strlen(desc);
-    char rules_item[len];
-    sprintf(rules_item,IPT_RULES_FMT,vdata->ip,vdata->groups[i].groupname,vdata->username,desc);
-    ret=ldap_plugin_run_system(IPTABLE_INSERT_ROLE,"FORWARD",rules_item);
-    LOGINFO("Client [%s] is connected.IP [%s],vpn groups [%s]!",
+    // 检查必要的指针是否为NULL
+    if (!vdata->ip || !vdata->username || !vdata->groups[i].groupname) {
+        LOGERROR("Invalid parameters for group %d", i);
+        ret = -1;
+        continue;
+    }
+    // 计算所需缓冲区大小，+1 用于空终止符
+    int len = snprintf(NULL, 0, IPT_RULES_FMT, 
+                      vdata->ip, 
+                      vdata->groups[i].groupname, 
+                      vdata->username, 
+                      desc) + 1;
+    char  rules_item[len];
+    // 格式化字符串
+    snprintf(rules_item, len, IPT_RULES_FMT,
+            vdata->ip,
+            vdata->groups[i].groupname,
+            vdata->username,
+            desc);
+    
+    int cmd_ret=ldap_plugin_run_system(IPTABLE_INSERT_ROLE,"FORWARD",rules_item);
+    if (cmd_ret != 0) {
+      LOGERROR("Failed to add rule for group %s,%s", vdata->groups[i].groupname,rules_item);
+      ret=cmd_ret;
+    }else{
+      LOGINFO("Client [%s] is connected.IP [%s],vpn groups [%s]!",
             vdata->username,
             vdata->ip,
             vdata->groups[i].groupname);
+    }
   }
   return ret;
 }
@@ -41,9 +63,29 @@ int la_learn_roles_delete(VpnData *vdata)
   for(int i=0;i<vdata->group_len;i++)
   {
     char *desc=vdata->groups[i].description!=NULL?vdata->groups[i].description:"";
-    int len=strlen(IPT_RULES_FMT)+strlen(vdata->ip)+strlen(vdata->username)+strlen(vdata->groups[i].groupname)+strlen(desc);
+    // 检查必要的指针是否为NULL
+    if (!vdata->ip || !vdata->username || !vdata->groups[i].groupname) {
+        LOGERROR("Invalid parameters for group %d", i);
+        ret = -1;
+        continue;
+    }
+    // 计算所需缓冲区大小，+1 用于空终止符
+    int len = snprintf(NULL, 0, 
+        IPT_RULES_FMT, 
+        vdata->ip, 
+        vdata->groups[i].groupname, 
+        vdata->username, 
+        desc) + 1;
+    // int len=strlen(IPT_RULES_FMT)+strlen(vdata->ip)+strlen(vdata->username)+strlen(vdata->groups[i].groupname)+strlen(desc);
     char rules_item[len];
-    sprintf(rules_item,IPT_RULES_FMT,vdata->ip,vdata->groups[i].groupname,vdata->username,desc);
+    // snprintf(rules_item,IPT_RULES_FMT,vdata->ip,vdata->groups[i].groupname,vdata->username,desc);
+    // 格式化字符串
+    snprintf(rules_item, len, 
+        IPT_RULES_FMT,
+        vdata->ip,
+        vdata->groups[i].groupname,
+        vdata->username,
+        desc);
     ret=ldap_plugin_run_system(IPTABLE_DELETE_ROLE,"FORWARD",rules_item);
   }
   return ret;
@@ -61,7 +103,6 @@ static void config_default_iptable_rules(iptable_rules_action_type ctype)
   ldap_plugin_run_system(ctype, "FORWARD", allowVpn);
   sprintf(allowVpn,"-p tcp -m tcp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
   ldap_plugin_run_system(ctype,"FORWARD",allowVpn);
-  sprintf(allowVpn,"-p udp -m udp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
   sprintf(allowVpn,"-p udp -m udp --dport 53 -s %s -j ACCEPT",openvpnserverinfo->netaddr);
   ldap_plugin_run_system(ctype,"FORWARD",allowVpn);
   sprintf(allowVpn,"-s %s -j MASQUERADE",openvpnserverinfo->netaddr);
@@ -125,44 +166,58 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
   int ret = -1;
   if(!filter_name) return ret;
   char * filename="/usr/bin/sudo -u root";
-  char * cmd_argv;
+  char * cmd_argv = NULL;
   char * iptables_cmd="/sbin/iptables -N";
-  int len=strlen(filename)+strlen(iptables_cmd)+strlen(filter_name)+strlen(rule_item)+4;
-  cmd_argv=malloc(len);
-  memset(cmd_argv,0,len);
+  // int len=strlen(filename)+strlen(iptables_cmd)+strlen(filter_name)+strlen(rule_item)+4;
   switch (cmd_type)
   {
     case IPTABLE_CREATE_FILTER:
       iptables_cmd="/sbin/iptables -N";
-      sprintf(cmd_argv,"%s %s %s",filename,iptables_cmd,filter_name);
+      int len=snprintf(NULL,0,"%s %s %s",filename,iptables_cmd,filter_name)+1;
+      cmd_argv=la_malloc(len);
+      snprintf(cmd_argv,len,"%s %s %s",filename,iptables_cmd,filter_name);
       break;
     case IPTABLE_EMPTY_FILTER:
       iptables_cmd="/sbin/iptables -F";
-      sprintf(cmd_argv,"%s %s %s",filename,iptables_cmd,filter_name);
+      int len=snprintf(NULL,0,"%s %s %s",filename,iptables_cmd,filter_name)+1;
+      cmd_argv=la_malloc(len);
+      snprintf(cmd_argv,len,"%s %s %s",filename,iptables_cmd,filter_name);
       break;
     case IPTABLE_DELETE_FILTER:
       iptables_cmd="/sbin/iptables -X";
-      sprintf(cmd_argv,"%s %s %s",filename,iptables_cmd,filter_name);
+      int len=snprintf(NULL,0,"%s %s %s",filename,iptables_cmd,filter_name)+1;
+      cmd_argv=la_malloc(len);
+      snprintf(cmd_argv,len,"%s %s %s",filename,iptables_cmd,filter_name);
       break;
     case IPTABLE_APPEND_ROLE:
       iptables_cmd="/sbin/iptables -A";
-      sprintf(cmd_argv,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
+      int len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
+      cmd_argv=la_malloc(len);
+      snprintf(cmd_argv,len,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
       break;
     case IPTABLE_INSERT_ROLE:
       iptables_cmd="/sbin/iptables -I";
-      sprintf(cmd_argv,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
+      int len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
+      cmd_argv=la_malloc(len);
+      snprintf(cmd_argv,len,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
       break;
     case IPTABLE_DELETE_ROLE:
       iptables_cmd="/sbin/iptables -D";
-      sprintf(cmd_argv,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
+      int len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
+      cmd_argv=la_malloc(len);
+      snprintf(cmd_argv,len,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
       break;
     case IPTABLE_INSERT_MASQUERADE_ROLE:
       iptables_cmd="/sbin/iptables -t nat -I";
-      sprintf(cmd_argv,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
+      int len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
+      cmd_argv=la_malloc(len);
+      snprintf(cmd_argv,len,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
       break;
     case IPTABLE_DELETE_MASQUERADE_ROLE:
       iptables_cmd="/sbin/iptables -t nat -D";
-      sprintf(cmd_argv,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
+      int len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
+      cmd_argv=la_malloc(len);
+      snprintf(cmd_argv,len,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
       break;
     default:
       break;
