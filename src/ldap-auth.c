@@ -388,7 +388,6 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
     LOGINFO("PLUGIN_LEARN_ADDRESS:%s %s", argv[1],argv[2]);
     if(cc && cc->user_dn){
       LOGINFO("Client user_dn:%s",cc->user_dn);
-      pthread_mutex_lock(&cc->mutex);
       if(cc->groups && cc->group_len>0){
         LOGINFO("Client group lenght:%d",cc->group_len);
         for(int i=0; i<cc->group_len; i++){
@@ -398,7 +397,6 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
             LOGINFO("Client group description:%s", description);
         }
       }
-      pthread_mutex_unlock(&cc->mutex);
     }
     LOGINFO("test111");
     if(string_array_len(argv)>1){
@@ -596,9 +594,9 @@ openvpn_plugin_client_destructor_v1( openvpn_plugin_handle_t handle, void *per_c
   client_context_t *cc = per_client_context;
   if(cc->user_dn)
     LOGINFO("The current user %s is disconnected from the client. ldap dn: %s" ,cc->user_id,cc->user_dn);
-  pthread_mutex_lock(&cc->mutex);
+  // pthread_mutex_lock(&cc->mutex);
   client_context_free( cc );
-  pthread_mutex_unlock(&cc->mutex);
+  // pthread_mutex_unlock(&cc->mutex);
   // 调整mutex判断
   la_free(cc);
 }
