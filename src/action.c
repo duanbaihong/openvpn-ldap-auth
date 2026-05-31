@@ -22,6 +22,9 @@
 #include "action.h"
 #include "utils.h"
 
+pthread_mutex_t action_mutex;
+pthread_cond_t action_cond;
+pthread_attr_t action_thread_attr;
 
 action_t *
 action_new( )

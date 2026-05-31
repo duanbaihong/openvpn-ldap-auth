@@ -27,7 +27,7 @@ typedef struct ConnQueue_s{
 }ConnQueue;
 
 // 定义全局队列
-ConnQueue *ConnVpnQueue_r;
+extern ConnQueue *ConnVpnQueue_r;
 // dbh888 extra 2019-08-23
 
 extern bool InitConnVpnQueue(ConnQueue **CQ);

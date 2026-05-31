@@ -212,14 +212,19 @@ char *get_passwd( const char *prompt ){
 	int size = 0;
 	char c;
 	char *pass = malloc( size + 1 );
+	if (!pass) return NULL;
 	/* turn off echoing */
-	if (tcgetattr (fileno (stdin), &old) != 0 )
+	if (tcgetattr (fileno (stdin), &old) != 0 ){
+		free(pass);
         return NULL;
+	}
 	new = old;
 	//new.c_lflag &= ~ECHO || ECHOCTL;
 	new.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL | ICANON);
-	if (tcsetattr (fileno ( stdin ), TCSAFLUSH, &new ) != 0 )
+	if (tcsetattr (fileno ( stdin ), TCSAFLUSH, &new ) != 0 ){
+		free(pass);
 		return NULL;
+	}
 	/* get the password */
 	if( prompt ) fprintf( stdout, "%s", prompt );
 	while( ( c = getc( stdin )) != '\n' ){
@@ -228,7 +233,9 @@ char *get_passwd( const char *prompt ){
 			if( size > 0 ) size--;
 		}else{
 			size ++;
-			pass = realloc( pass, size + 1);
+			char *tmp_pass = (char *)realloc( pass, size + 1);
+			if (!tmp_pass) break;
+			pass = tmp_pass;
 			*(pass+size-1) = c;
 		}
 	}

@@ -25,6 +25,7 @@
 
 
 extern char use_syslog;
+extern int g_log_verb;
 
 #define D_EMERG 0 /* system is unusable */
 #define D_ALERT 1 /* action must be taken immediately */

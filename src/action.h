@@ -38,9 +38,9 @@ typedef struct action{
   void (*context_free_func)( void *data );
 } action_t;
 
-pthread_mutex_t action_mutex;
-pthread_cond_t action_cond;
-pthread_attr_t action_thread_attr;
+extern pthread_mutex_t action_mutex;
+extern pthread_cond_t action_cond;
+extern pthread_attr_t action_thread_attr;
 
 extern action_t *action_new( void );
 extern void action_free( void *action );

@@ -9,8 +9,10 @@
 // #include <sys/wait.h>
 // #include <unistd.h>
 #include <errno.h> 
+#include <unistd.h>
 #include <queue.h>
 #include "client_context.h"
+#include "la_ldap.h"
 #include "la_iptables.h"
 
 const char *IPT_RULES_FMT="-p all -s %s -j %s -m comment --comment 'User [%s]=>[%s]'";
@@ -219,6 +221,13 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
       cmd_argv=la_malloc(len);
       snprintf(cmd_argv,len,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
       break;
+    case IPTABLE_INSERT_ROLE_AT:
+      iptables_cmd="/sbin/iptables -I";
+      /* rule_item 格式: "INDEX RULE_CONTENT"，如 "2 -p tcp --dport 443 -j ACCEPT" */
+      len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
+      cmd_argv=la_malloc(len);
+      snprintf(cmd_argv,len,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
+      break;
     default:
       break;
   }
@@ -240,7 +249,181 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
   return ret;
 }
 
-// 
+/* --- 动态加载 iptables 策略 --- */
+pthread_t g_iptables_monitor_thread = 0;
+volatile int g_iptables_monitor_running = 0;
+
+static int chain_find(LdapIptableRoles *rules, const char *name) {
+    for (int i = 0; i < rules->clen; i++)
+        if (!strcmp(rules->chains[i].chain_name, name))
+            return i;
+    return -1;
+}
+
+static void update_chain_rules(char *name, IptableChainItems *old, IptableChainItems *new) {
+    int min_len = old->rule_len < new->rule_len ? old->rule_len : new->rule_len;
+    int changed = (old->rule_len != new->rule_len);
+    if (!changed) {
+        for (int m = 0; m < min_len; m++) {
+            if (strcmp(old->rule_item[m], new->rule_item[m]) != 0) {
+                changed = 1;
+                break;
+            }
+        }
+    }
+    if (!changed) {
+        LOGDEBUG("iptables reload: chain %s unchanged, skip", name);
+        return;
+    }
+
+    LOGINFO("iptables reload: update chain %s (%d rules -> %d)",
+            name, old->rule_len, new->rule_len);
+
+    if (old->rule_len == new->rule_len) {
+        /* 数量相同 → 用 -I INDEX 精确替换，不动 RETURN */
+        int all_same = 1;
+        for (int m = 0; m < min_len; m++)
+            if (strcmp(old->rule_item[m], new->rule_item[m]) != 0) { all_same = 0; break; }
+        if (all_same) return;  /* 完全没变，跳过 */
+
+        for (int m = min_len - 1; m >= 0; m--)
+            if (strcmp(old->rule_item[m], new->rule_item[m]) != 0)
+                ldap_plugin_run_system(IPTABLE_DELETE_ROLE, name, old->rule_item[m]);
+
+        for (int m = 0; m < min_len; m++)
+            if (strcmp(old->rule_item[m], new->rule_item[m]) != 0) {
+                char rule_with_pos[512];
+                snprintf(rule_with_pos, sizeof(rule_with_pos), "%d %s", m + 1, new->rule_item[m]);
+                ldap_plugin_run_system(IPTABLE_INSERT_ROLE_AT, name, rule_with_pos);
+            }
+    } else {
+        /* 数量不同 → 删 RETURN → 删旧加新 → 加 RETURN */
+        ldap_plugin_run_system(IPTABLE_DELETE_ROLE, name, "-p all -j RETURN");
+        for (int m = 0; m < old->rule_len; m++) {
+            int keep = 0;
+            for (int n = 0; n < new->rule_len && !keep; n++)
+                if (!strcmp(old->rule_item[m], new->rule_item[n])) keep = 1;
+            if (!keep)
+                ldap_plugin_run_system(IPTABLE_DELETE_ROLE, name, old->rule_item[m]);
+        }
+        for (int n = 0; n < new->rule_len; n++) {
+            int exist = 0;
+            for (int m = 0; m < old->rule_len && !exist; m++)
+                if (!strcmp(new->rule_item[n], old->rule_item[m])) exist = 1;
+            if (!exist)
+                ldap_plugin_run_system(IPTABLE_APPEND_ROLE, name, new->rule_item[n]);
+        }
+        ldap_plugin_run_system(IPTABLE_APPEND_ROLE, name, "-p all -j RETURN");
+    }
+}
+
+static void rebuild_online_forwards(const char *chain_name) {
+    if (!ConnVpnQueue_r) return;
+    for (ConnNode *n = ConnVpnQueue_r->front->next; n; n = n->next) {
+        VpnData *d = n->data;
+        for (int j = 0; j < d->group_len; j++) {
+            if (!strcmp(d->groups[j].groupname, chain_name)) {
+                int len = snprintf(NULL, 0, IPT_RULES_FMT, d->ip, chain_name, d->username, "") + 1;
+                char rule[len];
+                snprintf(rule, len, IPT_RULES_FMT, d->ip, chain_name, d->username, "");
+                ldap_plugin_run_system(IPTABLE_INSERT_ROLE, "FORWARD", rule);
+                break;
+            }
+        }
+    }
+}
+
+static void drop_online_forwards(const char *chain_name) {
+    if (!ConnVpnQueue_r) return;
+    for (ConnNode *n = ConnVpnQueue_r->front->next; n; n = n->next) {
+        VpnData *d = n->data;
+        for (int j = 0; j < d->group_len; j++) {
+            if (!strcmp(d->groups[j].groupname, chain_name)) {
+                char *desc = d->groups[j].description ? d->groups[j].description : "";
+                int len = snprintf(NULL, 0, IPT_RULES_FMT, d->ip, chain_name, d->username, desc) + 1;
+                char rule[len];
+                snprintf(rule, len, IPT_RULES_FMT, d->ip, chain_name, d->username, desc);
+                ldap_plugin_run_system(IPTABLE_DELETE_ROLE, "FORWARD", rule);
+                break;
+            }
+        }
+    }
+}
+
+int la_iptables_reload(ldap_context_t *l) {
+    profile_config_t *lp = l->config->profiles->first->data;
+    LdapIptableRoles *old_rules = lp->iptable_rules;
+
+    LdapIptableRoles *saved = lp->iptable_rules;
+    int ret = config_load_ldap_groups_profiles(l);
+    LdapIptableRoles *new_rules = lp->iptable_rules;
+    if (ret != 0 || !new_rules) {
+        lp->iptable_rules = saved;
+        return -1;
+    }
+    lp->iptable_rules = saved;
+    config_iptable_role_merge(new_rules, iptblrules);
+
+    pthread_mutex_lock(&action_mutex);
+
+    for (int i = 0; i < old_rules->clen; i++) {
+        char *name = old_rules->chains[i].chain_name;
+        if (chain_find(new_rules, name) >= 0) continue;
+        LOGINFO("iptables reload: delete chain %s", name);
+        drop_online_forwards(name);
+        ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, name, "");
+        ldap_plugin_run_system(IPTABLE_DELETE_FILTER, name, "");
+    }
+
+    for (int i = 0; i < new_rules->clen; i++) {
+        char *name = new_rules->chains[i].chain_name;
+        int old_idx = chain_find(old_rules, name);
+        if (old_idx < 0) {
+            LOGINFO("iptables reload: create chain %s", name);
+            ldap_plugin_run_system(IPTABLE_CREATE_FILTER, name, "");
+            for (int m = 0; m < new_rules->chains[i].rule_len; m++)
+                ldap_plugin_run_system(IPTABLE_APPEND_ROLE, name, new_rules->chains[i].rule_item[m]);
+            ldap_plugin_run_system(IPTABLE_APPEND_ROLE, name, "-p all -j RETURN");
+            rebuild_online_forwards(name);
+        } else {
+            update_chain_rules(name, &old_rules->chains[old_idx], &new_rules->chains[i]);
+        }
+    }
+
+    lp->iptable_rules = new_rules;
+    ldap_iptables_roles_free(old_rules);
+    config_iptables_printf(new_rules);
+
+    pthread_mutex_unlock(&action_mutex);
+    LOGINFO("iptables rules reloaded: %d chains", new_rules->clen);
+    return 0;
+}
+
+static void *iptables_monitor_thread(void *arg) {
+    ldap_context_t *l = (ldap_context_t *)arg;
+    g_iptables_monitor_running = 1;
+    LOGINFO("iptables monitor thread started");
+    while (g_iptables_monitor_running) {
+        sleep(60);
+        if (!g_iptables_monitor_running) break;
+        la_iptables_reload(l);
+    }
+    g_iptables_monitor_running = 0;
+    return NULL;
+}
+
+int la_iptables_start_monitor(ldap_context_t *l) {
+    if (g_iptables_monitor_thread != 0) return 0;
+    return pthread_create(&g_iptables_monitor_thread, NULL, iptables_monitor_thread, l);
+}
+
+void la_iptables_stop_monitor(void) {
+    if (g_iptables_monitor_thread == 0) return;
+    g_iptables_monitor_running = 0;
+    pthread_join(g_iptables_monitor_thread, NULL);
+    g_iptables_monitor_thread = 0;
+}
+
 void config_iptables_printf(LdapIptableRoles *rules)
 {
   if(!rules) return;

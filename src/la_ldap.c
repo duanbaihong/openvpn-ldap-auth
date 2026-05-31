@@ -605,7 +605,7 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
           LOGDEBUG("Get profile [%s] value length: %d, current value: %s",attr,vals[0]->bv_len,vals[0]->bv_val);
         }
         ldap_value_free_len(vals);
-        // ldap_memfree( attr );
+        ldap_memfree( attr );
       }
       if(cc->groups[group_num].groupname == NULL){
         cc->groups[group_num].groupname=strdup("N/A");
@@ -645,7 +645,10 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
   }
   /* bind to LDAP server anonymous or authenticated */
   rc=ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
-  if( rc != LDAP_SUCCESS ) return res;
+  if( rc != LDAP_SUCCESS ){
+    ldap_conn_handle_free(ldap,NULL);
+    return res;
+  }
   /* find user and return userdn */
   userdn = ldap_find_user( ldap, l, auth_context->username, client_context );
   if( !userdn ){

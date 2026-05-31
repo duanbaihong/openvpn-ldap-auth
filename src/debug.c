@@ -28,6 +28,8 @@
 #include <sys/time.h>
 
 #include "debug.h"
+
+int g_log_verb = 7; /* 默认最详细，由 ldap-auth.c 在启动时设置 */
 #if HAVE_SYSLOG_H
 #include <syslog.h>
 #else
@@ -102,6 +104,7 @@ void _error( const char *file, int line, const char *func, const char *fmt, ... 
 }
 
 void _log( int level, const char *fmt, ... ){
+  if (level > g_log_verb + 1) return;
   va_list argp;
   char s[BUFSIZ];
   size_t cur_len = 0;
@@ -125,7 +128,7 @@ void _log( int level, const char *fmt, ... ){
     char strtime[26];
     // strftime(strtime, 26, "%a %b %e %T %Y", &tmp);
     strftime(strtime, sizeof(strtime), "[%Y/%m/%d %T]", &tmp);
-    fprintf( stderr, "%s us=%-6ld %s\n", strtime,tv.tv_usec, s);
+    fprintf( stderr, "%s us=%-6d %s\n", strtime, (int)tv.tv_usec, s);
   }
 }
 

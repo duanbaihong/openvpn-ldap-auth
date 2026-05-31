@@ -200,6 +200,7 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   const char *verb_string = get_env ("verb", envp);
   if (verb_string)
     context->verb = atoi (verb_string);
+  g_log_verb = context->verb;
   // 解析配置文件信息
   if( config_init_ldap_config_set( configfile, envp ) ){
     goto error;
@@ -248,6 +249,9 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   pthread_attr_init(&action_thread_attr);
   pthread_attr_setdetachstate(&action_thread_attr, PTHREAD_CREATE_JOINABLE);
   rc = pthread_create(&action_thread, &action_thread_attr, action_thread_main_loop, context);
+  /* start iptables monitor thread for dynamic reload */
+  if( pro_fd->enable_ldap_iptable > 0 )
+    la_iptables_start_monitor( context );
   
   switch( rc ){
     case EAGAIN:
@@ -495,6 +499,8 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
 
   if (DOINFO (context->verb))
     LOGINFO( "%s() called", __FUNCTION__ );
+  /* stop iptables monitor thread */
+  la_iptables_stop_monitor();
   if( action){
     action->type = LDAP_AUTH_ACTION_QUIT;
     action_push( context->action_list, action );

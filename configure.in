@@ -8,17 +8,17 @@ AC_INIT([OpenVPN LDAP Auth],[openvpnldapauth_version()],[chantra@debuntu.org],[o
 AM_INIT_AUTOMAKE([1.9 foreign no-dist-gzip dist-bzip2])
 
 AC_CONFIG_SRCDIR([Makefile.am])
-AM_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
+AC_USE_SYSTEM_EXTENSIONS
 
-AM_INIT_AUTOMAKE([$PACKAGE], [$VERSION])
-
-AC_PROG_LIBTOOL
-dnl AC_PROG_RANLIB
-dnl LT_INIT
+AC_PROG_RANLIB
+LT_INIT
 AC_CONFIG_MACRO_DIR([m4])
 AC_PROG_CC
 
-CFLAGS="${CFLAGS} -g -Wall -Werror"
+AC_CHECK_FUNCS([strdup])
+
+CFLAGS="${CFLAGS} -g -Wall -Werror -D_GNU_SOURCE"
 AC_SUBST(CFLAGS)
 
 AC_ARG_ENABLE(ldapuserconfig,

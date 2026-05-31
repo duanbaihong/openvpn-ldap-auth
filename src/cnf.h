@@ -132,9 +132,9 @@ typedef struct config{
 } config_t;
 
 
-ldap_config_keyvalue_t *iptblrules;
-ldap_config_keyvalue_t *ldapconfig;
-ldap_openvpn_server_info *openvpnserverinfo;
+extern ldap_config_keyvalue_t *iptblrules;
+extern ldap_config_keyvalue_t *ldapconfig;
+extern ldap_openvpn_server_info *openvpnserverinfo;
 
 
 extern config_t *config_new( void );

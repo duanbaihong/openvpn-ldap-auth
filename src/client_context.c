@@ -41,7 +41,6 @@ client_context_new (void) {
   }
 #ifdef ENABLE_LDAPUSERCONF
   if( ( cc->ldap_account = ldap_account_new( ) ) == NULL ){
-  ( cc );
     cc = NULL;
   }
 #endif

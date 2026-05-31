@@ -10,6 +10,7 @@
 // #include <pthread.h>
 
 // pthread_mutex_t queue_mutex;
+ConnQueue *ConnVpnQueue_r = NULL;
 //释放vpndata内存空间
 bool FreeConnVPNDataMem(VpnData *vpndata)
 {
@@ -27,7 +28,7 @@ bool FreeConnVPNDataMem(VpnData *vpndata)
 //初始化队列
 bool InitConnVpnQueue(ConnQueue **CQ){
     (*CQ)=malloc(sizeof(ConnQueue));
-    if(NULL==CQ) return false;
+    if(NULL==*CQ) return false;
     ConnNode *pConnNode=(ConnNode *)malloc(sizeof(ConnNode));
     if(NULL==pConnNode) return false;
     (*CQ)->front=(*CQ)->rear=pConnNode;

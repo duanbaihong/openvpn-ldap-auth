@@ -23,6 +23,11 @@
 #include "utils.h"
 #include "defines.h"
 #include "debug.h"
+
+/* 全局变量定义（对应 cnf.h 中的 extern 声明） */
+ldap_config_keyvalue_t *iptblrules = NULL;
+ldap_config_keyvalue_t *ldapconfig = NULL;
+ldap_openvpn_server_info *openvpnserverinfo = NULL;
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -232,7 +237,9 @@ void config_iptable_role_merge(LdapIptableRoles *tlp ,ldap_config_keyvalue_t *lo
         has_ready=1;
         // LOGINFO("找到重复链 %s",localrole->keymaps[i].name);
         // LOGINFO("找到重复链 %s",tlp->chains[m].chain_name);
-        tlp->chains[m].rule_item=(char **)realloc(tlp->chains[m].rule_item,sizeof(char *)*(tlp->chains[m].rule_len+localrole->keymaps[i].vlen));
+        char **tmp_rule_item = (char **)realloc(tlp->chains[m].rule_item, sizeof(char *) * (tlp->chains[m].rule_len + localrole->keymaps[i].vlen));
+        if (!tmp_rule_item) continue;
+        tlp->chains[m].rule_item = tmp_rule_item;
         for(int s=0; s<localrole->keymaps[i].vlen;s++)
         {
           // int n_p=tlp->chains[m].rule_len+s;
@@ -244,7 +251,9 @@ void config_iptable_role_merge(LdapIptableRoles *tlp ,ldap_config_keyvalue_t *lo
     if(!has_ready)
     {
       tlp->clen++;
-      tlp->chains=realloc(tlp->chains,sizeof(IptableChainItems)*tlp->clen);
+      IptableChainItems *tmp_chains = (IptableChainItems *)realloc(tlp->chains, sizeof(IptableChainItems) * tlp->clen);
+      if (!tmp_chains) { tlp->clen--; continue; }
+      tlp->chains = tmp_chains;
       tlp->chains[tlp->clen-1].chain_name=strdup(localrole->keymaps[i].name);
       tlp->chains[tlp->clen-1].rule_len=localrole->keymaps[i].vlen;
       tlp->chains[tlp->clen-1].rule_item=(char **)malloc(sizeof(char *)*localrole->keymaps[i].vlen);

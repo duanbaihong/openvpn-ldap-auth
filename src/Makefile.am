@@ -2,6 +2,7 @@
 #bin_PROGRAMS = openvpn-ldap-rules
 #lib_LIBRARIES = libopenvpn-ldap-auth.a
 lib_LTLIBRARIES = libopenvpn-ldap-auth.la
+AM_CPPFLAGS = -I$(srcdir) -I$(top_srcdir)
 
 auth_ldap_SOURCES = utils.h utils.c \
 					cnf.h cnf.c \
@@ -13,6 +14,8 @@ auth_ldap_SOURCES = utils.h utils.c \
 					la_iptables.h la_iptables.c \
 					client_context.h client_context.c \
 					debug.h debug.c
+
+EXTRA_DIST = openvpn-plugin.h
 
 #openvpn_ldap_rules_SOURCES = openvpn-ldap-rules.c \
 #					$(auth_ldap_SOURCES)

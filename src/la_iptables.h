@@ -10,7 +10,8 @@ typedef enum
   IPTABLE_INSERT_ROLE,
   IPTABLE_INSERT_MASQUERADE_ROLE,
   IPTABLE_DELETE_ROLE,
-  IPTABLE_DELETE_MASQUERADE_ROLE
+  IPTABLE_DELETE_MASQUERADE_ROLE,
+  IPTABLE_INSERT_ROLE_AT
 } iptable_rules_action_type;
 
 extern const char *IPT_RULES_FMT;
@@ -20,3 +21,8 @@ extern void config_iptables_printf(LdapIptableRoles *rules);
 extern void config_init_iptable_rules(LdapIptableRoles *rules);
 extern void config_uninit_iptable_rules(LdapIptableRoles *rules);
 extern int ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, char * rule_item);
+
+/* 动态加载接口 */
+extern int  la_iptables_reload(ldap_context_t *l);
+extern int  la_iptables_start_monitor(ldap_context_t *l);
+extern void la_iptables_stop_monitor(void);
