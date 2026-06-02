@@ -182,6 +182,7 @@ profile_config_free ( profile_config_t *c ){
   check_and_free( c->groupdn );
   check_and_free( c->group_search_filter );
   check_and_free( c->member_attribute );
+  check_and_free( c->default_group_attr );
   check_and_free( c->iptable_rules_field );
   
   ldap_iptables_roles_free( c->iptable_rules );
@@ -280,6 +281,7 @@ profile_config_dup( const profile_config_t *c ){
   if( c->groupdn ) nc->groupdn = strdup( c->groupdn );
   if( c->group_search_filter ) nc->group_search_filter = strdup( c->group_search_filter );
   if( c->member_attribute ) nc->member_attribute = strdup( c->member_attribute );
+  if( c->default_group_attr ) nc->default_group_attr = strdup( c->default_group_attr );
   if( c->iptable_rules_field ) nc->iptable_rules_field = strdup( c->iptable_rules_field );
   /* PF */
   if( c->default_pf_rules ) nc->default_pf_rules = strdup( c->default_pf_rules );
@@ -412,6 +414,8 @@ config_parse_file( config_t *c){
     }else if( !strcasecmp(tname, "GROUP_MEMBER_ATTR" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
       STRDUP_IFNOTSET(p->member_attribute, ldapconfig->keymaps[i].value[0] );
+    }else if( !strcasecmp(tname, "GROUP_DEFAULT_ATTR" ) ){
+      STRDUP_IFNOTSET(p->default_group_attr, ldapconfig->keymaps[i].value[0] );
     }else if( !strcasecmp(tname, "ENABLE_LDAP_IPTABLE" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
       p->enable_ldap_iptable=string_to_ternary(ldapconfig->keymaps[i].value[0]);
@@ -474,6 +478,7 @@ config_dump( config_t *c){
     LOGDEBUG_IFSET(p->groupdn,"  GroupDN");
     LOGDEBUG_IFSET(p->group_search_filter, "  Group Search Filter");
     LOGDEBUG_IFSET(p->member_attribute,"  Member Attribute");
+    LOGDEBUG_IFSET(p->default_group_attr,"  Default Group Attr");
     if(p->group_map_field[0])
     {
       LOGDEBUG("  Group Map Fields: %s",char_array_join(p->group_map_field,","));

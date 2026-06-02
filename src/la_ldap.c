@@ -554,7 +554,13 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
   /* initialise timeout values */
   la_ldap_set_timeout( config, &timeout);
   if( userdn && p->group_search_filter && p->member_attribute ){
-    search_filter = strdupf(filter,p->member_attribute, userdn, p->group_search_filter);
+    if( p->default_group_attr ){
+      /* OR: 用户要么匹配组过滤器，要么 default_group_attr=TRUE */
+      search_filter = strdupf("(|(&(%s=%s)%s)(%s=TRUE))",
+                             p->member_attribute, userdn, p->group_search_filter, p->default_group_attr);
+    } else {
+      search_filter = strdupf(filter, p->member_attribute, userdn, p->group_search_filter);
+    }
   }
 
   ldap_scope = la_ldap_config_search_scope_to_ldap( p->search_scope );

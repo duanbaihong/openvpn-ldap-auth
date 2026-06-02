@@ -106,6 +106,7 @@ typedef struct profile_config{
   char        *groupdn;
   char        *group_search_filter;
   char        *member_attribute;
+  char        *default_group_attr;
   char        *group_map_field[IP_RULE_ITEM_BUF];
   /* default gw hack */
   char        *redirect_gateway_prefix;
