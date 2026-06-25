@@ -188,6 +188,13 @@ profile_config_free ( profile_config_t *c ){
   check_and_free( c->tc_global_ceil );
   check_and_free( c->tc_user_rate_attr );
   check_and_free( c->tc_user_ceil_attr );
+  check_and_free( c->tc_group_rate_attr );
+  check_and_free( c->tc_group_ceil_attr );
+  for(int i=0; i<c->group_rate_limits_len; i++){
+    check_and_free( c->group_rate_limits[i].groupname );
+    check_and_free( c->group_rate_limits[i].rate );
+    check_and_free( c->group_rate_limits[i].ceil );
+  }
   
   ldap_iptables_roles_free( c->iptable_rules );
 
@@ -224,6 +231,7 @@ profile_config_new ( void ){
   c->iptable_rules->clen=0;
   c->enable_ldap_iptable=TERN_UNDEF;
   c->tc_enabled=TERN_UNDEF;
+  c->group_rate_limits_len=0;
   return c;
 }
 
@@ -293,6 +301,14 @@ profile_config_dup( const profile_config_t *c ){
   if( c->tc_global_ceil ) nc->tc_global_ceil = strdup( c->tc_global_ceil );
   if( c->tc_user_rate_attr ) nc->tc_user_rate_attr = strdup( c->tc_user_rate_attr );
   if( c->tc_user_ceil_attr ) nc->tc_user_ceil_attr = strdup( c->tc_user_ceil_attr );
+  if( c->tc_group_rate_attr ) nc->tc_group_rate_attr = strdup( c->tc_group_rate_attr );
+  if( c->tc_group_ceil_attr ) nc->tc_group_ceil_attr = strdup( c->tc_group_ceil_attr );
+  nc->group_rate_limits_len = c->group_rate_limits_len;
+  for(int i=0; i<c->group_rate_limits_len && i<IP_RULE_ITEM_BUF; i++){
+    if( c->group_rate_limits[i].groupname ) nc->group_rate_limits[i].groupname = strdup( c->group_rate_limits[i].groupname );
+    if( c->group_rate_limits[i].rate ) nc->group_rate_limits[i].rate = strdup( c->group_rate_limits[i].rate );
+    if( c->group_rate_limits[i].ceil ) nc->group_rate_limits[i].ceil = strdup( c->group_rate_limits[i].ceil );
+  }
   /* PF */
   if( c->default_pf_rules ) nc->default_pf_rules = strdup( c->default_pf_rules );
   nc->enable_pf = c->enable_pf;
@@ -442,6 +458,26 @@ config_parse_file( config_t *c){
       STRDUP_IFNOTSET(p->tc_user_rate_attr, ldapconfig->keymaps[i].value[0] );
     }else if( !strcasecmp(tname, "TC_USER_CEIL_ATTR" ) ){
       STRDUP_IFNOTSET(p->tc_user_ceil_attr, ldapconfig->keymaps[i].value[0] );
+    }else if( !strcasecmp(tname, "TC_GROUP_RATE_ATTR" ) ){
+      STRDUP_IFNOTSET(p->tc_group_rate_attr, ldapconfig->keymaps[i].value[0] );
+    }else if( !strcasecmp(tname, "TC_GROUP_CEIL_ATTR" ) ){
+      STRDUP_IFNOTSET(p->tc_group_ceil_attr, ldapconfig->keymaps[i].value[0] );
+    }else if( !strncasecmp(tname, "GROUP_LIMIT_", 12) ){
+      /* GROUP_LIMIT_<groupname>: "rate,ceil" */
+      if(p->group_rate_limits_len < IP_RULE_ITEM_BUF){
+        int idx = p->group_rate_limits_len;
+        p->group_rate_limits[idx].groupname = strdup(tname + 12);
+        char *val = ldapconfig->keymaps[i].value[0];
+        char *comma = val ? strchr(val, ',') : NULL;
+        if(comma){
+          p->group_rate_limits[idx].rate = strndup(val, comma - val);
+          p->group_rate_limits[idx].ceil = strdup(comma + 1);
+        } else {
+          p->group_rate_limits[idx].rate = val ? strdup(val) : NULL;
+          p->group_rate_limits[idx].ceil = NULL;
+        }
+        p->group_rate_limits_len++;
+      }
     }else if( !strcasecmp(tname, "GROUP_MAP_FIELD" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
       int n=0;
@@ -510,6 +546,14 @@ config_dump( config_t *c){
     LOGDEBUG_IFSET(p->tc_global_ceil, "  TC Global Ceil");
     LOGDEBUG_IFSET(p->tc_user_rate_attr, "  TC User Rate Attr");
     LOGDEBUG_IFSET(p->tc_user_ceil_attr, "  TC User Ceil Attr");
+    LOGDEBUG_IFSET(p->tc_group_rate_attr, "  TC Group Rate Attr");
+    LOGDEBUG_IFSET(p->tc_group_ceil_attr, "  TC Group Ceil Attr");
+    for(int gi=0; gi<p->group_rate_limits_len; gi++){
+      LOGDEBUG("  TC Group Limit [%s]: rate=%s ceil=%s",
+        p->group_rate_limits[gi].groupname ? p->group_rate_limits[gi].groupname : "?",
+        p->group_rate_limits[gi].rate ? p->group_rate_limits[gi].rate : "?",
+        p->group_rate_limits[gi].ceil ? p->group_rate_limits[gi].ceil : "?");
+    }
     LOGDEBUG( "  Enable PF: %s", ternary_to_string(p->enable_pf));
     LOGDEBUG( "  Default PF rules: %s", p->default_pf_rules ? p->default_pf_rules : "Undefined" );
 #ifdef ENABLE_LDAPUSERCONF

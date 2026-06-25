@@ -432,6 +432,12 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
               LOGDEBUG("Group index %d,groupname: %s ,description: %s",i,cc->groups[i].groupname,cc->groups[i].description);
               con_value->groups[i].groupname=strdup(cc->groups[i].groupname);
               con_value->groups[i].description=strdup(cc->groups[i].description);
+              con_value->groups[i].rate_limit=NULL;
+              if(cc->groups[i].rate_limit){
+                con_value->groups[i].rate_limit=la_malloc(sizeof(rate_limit_config_t));
+                if(con_value->groups[i].rate_limit)
+                  *con_value->groups[i].rate_limit=*cc->groups[i].rate_limit;
+              }
             }
           }
           if(JoinVpnQueue(ConnVpnQueue_r,con_value))
@@ -472,8 +478,14 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
           new_value->groups=la_malloc(sizeof(VpnConnGroups)*cc->group_len);
           for(int i=0; i<cc->group_len; i++){
             LOGDEBUG("Group index %d,groupname: %s ,description: %s",i,cc->groups[i].groupname,cc->groups[i].description);
-            new_value->groups[i].groupname=strdup(cc->groups[i].groupname);
-            new_value->groups[i].description=strdup(cc->groups[i].description);
+              new_value->groups[i].groupname=strdup(cc->groups[i].groupname);
+              new_value->groups[i].description=strdup(cc->groups[i].description);
+              new_value->groups[i].rate_limit=NULL;
+              if(cc->groups[i].rate_limit){
+                new_value->groups[i].rate_limit=la_malloc(sizeof(rate_limit_config_t));
+                if(new_value->groups[i].rate_limit)
+                  *new_value->groups[i].rate_limit=*cc->groups[i].rate_limit;
+              }
           }
         }
         if(JoinVpnQueue(ConnVpnQueue_r,new_value))

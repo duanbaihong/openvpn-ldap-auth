@@ -57,6 +57,7 @@ client_context_free (struct client_context *cc) {
   {
 	FREE_IF_NOT_NULL (cc->groups[i].groupname);
 	FREE_IF_NOT_NULL (cc->groups[i].description);
+	FREE_IF_NOT_NULL (cc->groups[i].rate_limit);
   }
   cc->group_len=0;
   FREE_IF_NOT_NULL (cc->groups);

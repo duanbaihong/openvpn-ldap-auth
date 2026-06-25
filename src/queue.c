@@ -19,6 +19,7 @@ bool FreeConnVPNDataMem(VpnData *vpndata)
     for(int i=0;i<vpndata->group_len;i++){
         check_and_free(vpndata->groups[i].groupname);
         check_and_free(vpndata->groups[i].description);
+        check_and_free(vpndata->groups[i].rate_limit);
     }
     vpndata->group_len=0;
     check_and_free(vpndata->groups);
