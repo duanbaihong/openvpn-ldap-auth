@@ -195,6 +195,11 @@ profile_config_free ( profile_config_t *c ){
     check_and_free( c->group_rate_limits[i].rate );
     check_and_free( c->group_rate_limits[i].ceil );
   }
+  for(int i=0; i<c->ldap_group_rate_limits_len; i++){
+    check_and_free( c->ldap_group_rate_limits[i].groupname );
+    check_and_free( c->ldap_group_rate_limits[i].rate );
+    check_and_free( c->ldap_group_rate_limits[i].ceil );
+  }
   
   ldap_iptables_roles_free( c->iptable_rules );
 
@@ -232,6 +237,7 @@ profile_config_new ( void ){
   c->enable_ldap_iptable=TERN_UNDEF;
   c->tc_enabled=TERN_UNDEF;
   c->group_rate_limits_len=0;
+  c->ldap_group_rate_limits_len=0;
   return c;
 }
 
@@ -308,6 +314,12 @@ profile_config_dup( const profile_config_t *c ){
     if( c->group_rate_limits[i].groupname ) nc->group_rate_limits[i].groupname = strdup( c->group_rate_limits[i].groupname );
     if( c->group_rate_limits[i].rate ) nc->group_rate_limits[i].rate = strdup( c->group_rate_limits[i].rate );
     if( c->group_rate_limits[i].ceil ) nc->group_rate_limits[i].ceil = strdup( c->group_rate_limits[i].ceil );
+  }
+  nc->ldap_group_rate_limits_len = c->ldap_group_rate_limits_len;
+  for(int i=0; i<c->ldap_group_rate_limits_len && i<IP_RULE_ITEM_BUF; i++){
+    if( c->ldap_group_rate_limits[i].groupname ) nc->ldap_group_rate_limits[i].groupname = strdup( c->ldap_group_rate_limits[i].groupname );
+    if( c->ldap_group_rate_limits[i].rate ) nc->ldap_group_rate_limits[i].rate = strdup( c->ldap_group_rate_limits[i].rate );
+    if( c->ldap_group_rate_limits[i].ceil ) nc->ldap_group_rate_limits[i].ceil = strdup( c->ldap_group_rate_limits[i].ceil );
   }
   /* PF */
   if( c->default_pf_rules ) nc->default_pf_rules = strdup( c->default_pf_rules );

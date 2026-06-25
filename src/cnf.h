@@ -137,6 +137,8 @@ typedef struct profile_config{
   char        *tc_group_ceil_attr;
   group_rate_limit_t group_rate_limits[IP_RULE_ITEM_BUF];
   int           group_rate_limits_len;
+  group_rate_limit_t ldap_group_rate_limits[IP_RULE_ITEM_BUF];
+  int           ldap_group_rate_limits_len;
   LdapIptableRoles        *iptable_rules;
 } profile_config_t;
 

@@ -867,7 +867,7 @@ int config_load_ldap_groups_profiles(ldap_context_t *l)
   profile_config_t *lp = config->profiles->first->data;
   int ldap_scope = LA_SCOPE_ONELEVEL;
   int rc = 0;
-  char *attrs[ldap_array_len(lp->group_map_field)+2];
+  char *attrs[ldap_array_len(lp->group_map_field)+4];
   int i=0;
   while(lp->group_map_field[i]!=NULL)
   {
@@ -875,7 +875,10 @@ int config_load_ldap_groups_profiles(ldap_context_t *l)
     i++;
   }
   attrs[i]=lp->iptable_rules_field?lp->iptable_rules_field:"iptableItems";
-  attrs[++i]=NULL;
+  i++;
+  if(lp->tc_group_rate_attr) attrs[i++]=lp->tc_group_rate_attr;
+  if(lp->tc_group_ceil_attr) attrs[i++]=lp->tc_group_ceil_attr;
+  attrs[i]=NULL;
   /* Connection to LDAP backend */
   ldap = connect_ldap( l );
   la_ldap_set_timeout( config, &timeout );
@@ -886,6 +889,14 @@ int config_load_ldap_groups_profiles(ldap_context_t *l)
   /* bind to LDAP server anonymous or authenticated */
   rc = ldap_binddn( ldap, config, config->ldap->binddn, config->ldap->bindpw );
   if( rc == LDAP_SUCCESS ){
+    /* 清理旧的 LDAP 组限流快照 */
+    for(int gi=0; gi<lp->ldap_group_rate_limits_len; gi++){
+      check_and_free(lp->ldap_group_rate_limits[gi].groupname);
+      check_and_free(lp->ldap_group_rate_limits[gi].rate);
+      check_and_free(lp->ldap_group_rate_limits[gi].ceil);
+    }
+    lp->ldap_group_rate_limits_len = 0;
+
     ldap_scope = la_ldap_config_search_scope_to_ldap( lp->search_scope );
     rc = ldap_search_ext_s( ldap, lp->groupdn, ldap_scope, lp->group_search_filter, attrs, 0, NULL, NULL, &timeout, 1000, &result );
     if( rc == LDAP_SUCCESS ){
@@ -918,6 +929,13 @@ int config_load_ldap_groups_profiles(ldap_context_t *l)
             {
               iptablerules->chains[group_num].rule_len=0;
               iptablerules->chains[group_num].chain_name=strdup(vals[0]->bv_val);
+              /* 同时记录组名用于 TC 组限流映射 */
+              if(lp->tc_enabled == TERN_TRUE && lp->ldap_group_rate_limits_len < IP_RULE_ITEM_BUF){
+                lp->ldap_group_rate_limits[lp->ldap_group_rate_limits_len].groupname=strdup(vals[0]->bv_val);
+                lp->ldap_group_rate_limits[lp->ldap_group_rate_limits_len].rate=NULL;
+                lp->ldap_group_rate_limits[lp->ldap_group_rate_limits_len].ceil=NULL;
+                lp->ldap_group_rate_limits_len++;
+              }
             }
             if(!strcasecmp(attr,lp->iptable_rules_field))
             {
@@ -926,6 +944,15 @@ int config_load_ldap_groups_profiles(ldap_context_t *l)
               la_memset(iptablerules->chains[group_num].rule_item,0,sizeof(char *) * count);
               for(int i=0;i<count;i++){
                 iptablerules->chains[group_num].rule_item[i] = strdup(vals[i]->bv_val);
+              }
+            }
+            if(lp->tc_enabled == TERN_TRUE && lp->ldap_group_rate_limits_len > 0){
+              int gi = lp->ldap_group_rate_limits_len - 1;
+              if(lp->tc_group_rate_attr && !strcasecmp(attr,lp->tc_group_rate_attr)){
+                lp->ldap_group_rate_limits[gi].rate = strndup(vals[0]->bv_val, vals[0]->bv_len);
+              }
+              if(lp->tc_group_ceil_attr && !strcasecmp(attr,lp->tc_group_ceil_attr)){
+                lp->ldap_group_rate_limits[gi].ceil = strndup(vals[0]->bv_val, vals[0]->bv_len);
               }
             }
             if(DODEBUG(l->verb)) LOGDEBUG("Get LDAP Permission Groups profile [%s] value length: %d, current value: %s",attr,vals[0]->bv_len,vals[0]->bv_val);
@@ -943,7 +970,90 @@ int config_load_ldap_groups_profiles(ldap_context_t *l)
   return rc;
 }
 
-// 
+void
+la_tc_reload(ldap_context_t *l){
+  config_t *config = l->config;
+  profile_config_t *lp = config->profiles->first->data;
+
+  if(lp->tc_enabled != TERN_TRUE) return;
+
+  /* 更新全局限速 root class */
+  rate_limit_config_t global_rl;
+  la_memset(&global_rl, 0, sizeof(global_rl));
+  if(lp->tc_global_rate)
+    global_rl.rate_bps = parse_bandwidth(lp->tc_global_rate);
+  if(lp->tc_global_ceil)
+    global_rl.ceil_bps = parse_bandwidth(lp->tc_global_ceil);
+  la_tc_reload_global(&global_rl);
+
+  /* 遍历在线用户，按刷新后的优先级链更新各 user class */
+  if(!ConnVpnQueue_r) return;
+  for(ConnNode *n = ConnVpnQueue_r->front->next; n; n = n->next){
+    VpnData *d = n->data;
+    if(!d || !d->ip) continue;
+
+    rate_limit_config_t resolved;
+    la_memset(&resolved, 0, sizeof(resolved));
+    int found = 0;
+
+    /* 1. LDAP 组限流（从刷新的 ldap_group_rate_limits） */
+    for(int gi=0; gi<d->group_len && !found; gi++){
+      if(!d->groups[gi].groupname) continue;
+      for(int lj=0; lj<lp->ldap_group_rate_limits_len; lj++){
+        if(!strcasecmp(d->groups[gi].groupname, lp->ldap_group_rate_limits[lj].groupname)
+           && lp->ldap_group_rate_limits[lj].rate){
+          resolved.rate_bps = parse_bandwidth(lp->ldap_group_rate_limits[lj].rate);
+          resolved.ceil_bps = lp->ldap_group_rate_limits[lj].ceil
+            ? parse_bandwidth(lp->ldap_group_rate_limits[lj].ceil) : 0;
+          if(resolved.rate_bps > 0) found = 1;
+          break;
+        }
+      }
+    }
+
+    /* 2. LDAP 用户限流（从 VpnData 认证时快照） */
+    if(!found){
+      for(int gi=0; gi<d->group_len && !found; gi++){
+        if(d->groups[gi].rate_limit && d->groups[gi].rate_limit->rate_bps > 0){
+          resolved = *d->groups[gi].rate_limit;
+          found = 1;
+        }
+      }
+    }
+
+    /* 3. YAML 全局限流 */
+    if(!found && lp->tc_global_rate){
+      resolved.rate_bps = parse_bandwidth(lp->tc_global_rate);
+      resolved.ceil_bps = lp->tc_global_ceil ? parse_bandwidth(lp->tc_global_ceil) : 0;
+      if(resolved.rate_bps > 0) found = 1;
+    }
+
+    /* 4. YAML 组限流 */
+    if(!found){
+      for(int gi=0; gi<d->group_len && !found; gi++){
+        if(!d->groups[gi].groupname) continue;
+        for(int yj=0; yj<lp->group_rate_limits_len; yj++){
+          if(!strcasecmp(d->groups[gi].groupname, lp->group_rate_limits[yj].groupname)){
+            resolved.rate_bps = lp->group_rate_limits[yj].rate
+              ? parse_bandwidth(lp->group_rate_limits[yj].rate) : 0;
+            resolved.ceil_bps = lp->group_rate_limits[yj].ceil
+              ? parse_bandwidth(lp->group_rate_limits[yj].ceil) : 0;
+            found = 1;
+            break;
+          }
+        }
+      }
+    }
+
+    /* 删旧 class + 建新 class */
+    la_tc_user_delete(d->ip);
+    if(found && resolved.rate_bps > 0){
+      la_tc_user_add(d->ip, &resolved);
+    }
+  }
+  LOGINFO("la_tc_reload: online users updated");
+}
+
 int ldap_conn_handle_free(LDAP *ldap, char *userdn)
 {
   int rc=0;
