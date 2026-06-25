@@ -28,6 +28,7 @@
 #include "queue.h"
 #include "client_context.h"
 #include "config.h"
+#include "la_tc.h"
 
 #ifdef ENABLE_LDAPUSERCONF
 #include "ldap_profile.h"
@@ -690,6 +691,64 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
 #endif
         /* handle pf_rules if any, default value otherwise */
         la_ldap_handle_pf_file( config, client_context, auth_context->pf_file );
+
+        /* 查询 LDAP 用户限速属性，填充 client_context->rate_limit */
+        if( client_context->profile->tc_enabled == TERN_TRUE
+            && (client_context->profile->tc_user_rate_attr
+                || client_context->profile->tc_user_ceil_attr) ){
+          rate_limit_config_t *rl = la_malloc( sizeof(rate_limit_config_t) );
+          if( rl ){
+            la_memset( rl, 0, sizeof(rate_limit_config_t) );
+            char *attrs[3];
+            int ai = 0;
+            if( client_context->profile->tc_user_rate_attr )
+              attrs[ai++] = client_context->profile->tc_user_rate_attr;
+            if( client_context->profile->tc_user_ceil_attr )
+              attrs[ai++] = client_context->profile->tc_user_ceil_attr;
+            attrs[ai] = NULL;
+
+            if( ai > 0 ){
+              struct timeval timeout;
+              la_ldap_set_timeout( config, &timeout );
+              LDAPMessage *rl_result = NULL;
+              rc = ldap_search_ext_s( ldap, userdn, LDAP_SCOPE_BASE,
+                                      "(objectClass=*)", attrs, 0,
+                                      NULL, NULL, &timeout, 1, &rl_result );
+              if( rc == LDAP_SUCCESS && rl_result ){
+                LDAPMessage *entry = ldap_first_entry( ldap, rl_result );
+                if( entry ){
+                  BerElement *ber = NULL;
+                  char *attr;
+                  for( attr = ldap_first_attribute( ldap, entry, &ber );
+                       attr != NULL;
+                       attr = ldap_next_attribute( ldap, entry, ber ) ){
+                    struct berval **vals = ldap_get_values_len( ldap, entry, attr );
+                    if( vals && ldap_count_values_len(vals) > 0 ){
+                      if( client_context->profile->tc_user_rate_attr
+                          && !strcasecmp(attr, client_context->profile->tc_user_rate_attr) ){
+                        char *rate_str = strndup( vals[0]->bv_val, vals[0]->bv_len );
+                        rl->rate_bps = parse_bandwidth( rate_str );
+                        free( rate_str );
+                      } else if( client_context->profile->tc_user_ceil_attr
+                          && !strcasecmp(attr, client_context->profile->tc_user_ceil_attr) ){
+                        char *ceil_str = strndup( vals[0]->bv_val, vals[0]->bv_len );
+                        rl->ceil_bps = parse_bandwidth( ceil_str );
+                        free( ceil_str );
+                      }
+                    }
+                    if( vals ) ldap_value_free_len( vals );
+                    ldap_memfree( attr );
+                  }
+                  if( ber ) ber_free( ber, 0 );
+                }
+                ldap_msgfree( rl_result );
+              }
+            }
+            client_context->rate_limit = rl;
+            LOGDEBUG("la_ldap: user %s rate_limit rate=%u ceil=%u",
+                     auth_context->username, rl->rate_bps, rl->ceil_bps);
+          }
+        }
 
         /* check if user belong to right groups */
         if( client_context->profile->groupdn && client_context->profile->group_search_filter && client_context->profile->member_attribute ){
