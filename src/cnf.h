@@ -120,6 +120,12 @@ typedef struct profile_config{
 #endif
   ternary_t   enable_ldap_iptable;
   char        *iptable_rules_field;
+  /* TC rate limiting */
+  ternary_t   tc_enabled;
+  char        *tc_global_rate;
+  char        *tc_global_ceil;
+  char        *tc_user_rate_attr;
+  char        *tc_user_ceil_attr;
   LdapIptableRoles        *iptable_rules;
 } profile_config_t;
 

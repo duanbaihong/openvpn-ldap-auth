@@ -184,6 +184,10 @@ profile_config_free ( profile_config_t *c ){
   check_and_free( c->member_attribute );
   check_and_free( c->default_group_attr );
   check_and_free( c->iptable_rules_field );
+  check_and_free( c->tc_global_rate );
+  check_and_free( c->tc_global_ceil );
+  check_and_free( c->tc_user_rate_attr );
+  check_and_free( c->tc_user_ceil_attr );
   
   ldap_iptables_roles_free( c->iptable_rules );
 
@@ -219,6 +223,7 @@ profile_config_new ( void ){
   la_memset(c->iptable_rules,0,sizeof(LdapIptableRoles));
   c->iptable_rules->clen=0;
   c->enable_ldap_iptable=TERN_UNDEF;
+  c->tc_enabled=TERN_UNDEF;
   return c;
 }
 
@@ -283,6 +288,11 @@ profile_config_dup( const profile_config_t *c ){
   if( c->member_attribute ) nc->member_attribute = strdup( c->member_attribute );
   if( c->default_group_attr ) nc->default_group_attr = strdup( c->default_group_attr );
   if( c->iptable_rules_field ) nc->iptable_rules_field = strdup( c->iptable_rules_field );
+  nc->tc_enabled = c->tc_enabled;
+  if( c->tc_global_rate ) nc->tc_global_rate = strdup( c->tc_global_rate );
+  if( c->tc_global_ceil ) nc->tc_global_ceil = strdup( c->tc_global_ceil );
+  if( c->tc_user_rate_attr ) nc->tc_user_rate_attr = strdup( c->tc_user_rate_attr );
+  if( c->tc_user_ceil_attr ) nc->tc_user_ceil_attr = strdup( c->tc_user_ceil_attr );
   /* PF */
   if( c->default_pf_rules ) nc->default_pf_rules = strdup( c->default_pf_rules );
   nc->enable_pf = c->enable_pf;
@@ -422,6 +432,16 @@ config_parse_file( config_t *c){
     }else if( !strcasecmp(tname, "IPTABLE_RULES_FIELD" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
       STRDUP_IFNOTSET(p->iptable_rules_field, ldapconfig->keymaps[i].value[0] );
+    }else if( !strcasecmp(tname, "TC_ENABLED" ) ){
+      p->tc_enabled = string_to_ternary(ldapconfig->keymaps[i].value[0]);
+    }else if( !strcasecmp(tname, "TC_GLOBAL_RATE" ) ){
+      STRDUP_IFNOTSET(p->tc_global_rate, ldapconfig->keymaps[i].value[0] );
+    }else if( !strcasecmp(tname, "TC_GLOBAL_CEIL" ) ){
+      STRDUP_IFNOTSET(p->tc_global_ceil, ldapconfig->keymaps[i].value[0] );
+    }else if( !strcasecmp(tname, "TC_USER_RATE_ATTR" ) ){
+      STRDUP_IFNOTSET(p->tc_user_rate_attr, ldapconfig->keymaps[i].value[0] );
+    }else if( !strcasecmp(tname, "TC_USER_CEIL_ATTR" ) ){
+      STRDUP_IFNOTSET(p->tc_user_ceil_attr, ldapconfig->keymaps[i].value[0] );
     }else if( !strcasecmp(tname, "GROUP_MAP_FIELD" ) ){
       // CHECK_IF_IN_PROFILE( arg, in_profile );
       int n=0;
@@ -485,6 +505,11 @@ config_dump( config_t *c){
     }
     LOGDEBUG_IFSET(ternary_to_string(p->enable_ldap_iptable),"  Enable LDAP Iptable");
     LOGDEBUG_IFSET(p->iptable_rules_field,"  Iptable Rules Field");
+    LOGDEBUG_IFSET(ternary_to_string(p->tc_enabled),"  TC Enabled");
+    LOGDEBUG_IFSET(p->tc_global_rate, "  TC Global Rate");
+    LOGDEBUG_IFSET(p->tc_global_ceil, "  TC Global Ceil");
+    LOGDEBUG_IFSET(p->tc_user_rate_attr, "  TC User Rate Attr");
+    LOGDEBUG_IFSET(p->tc_user_ceil_attr, "  TC User Ceil Attr");
     LOGDEBUG( "  Enable PF: %s", ternary_to_string(p->enable_pf));
     LOGDEBUG( "  Default PF rules: %s", p->default_pf_rules ? p->default_pf_rules : "Undefined" );
 #ifdef ENABLE_LDAPUSERCONF
