@@ -62,6 +62,7 @@
 #include "list.h"
 #include "la_ldap.h"
 #include "la_iptables.h"
+#include "la_tc.h"
 #include "client_context.h"
 #include "ldap_profile.h"
 
@@ -252,6 +253,18 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   /* start iptables monitor thread for dynamic reload */
   if( pro_fd->enable_ldap_iptable > 0 )
     la_iptables_start_monitor( context );
+  if( pro_fd->tc_enabled == TERN_TRUE ){
+    rate_limit_config_t global_rl;
+    la_memset( &global_rl, 0, sizeof(global_rl) );
+    if( pro_fd->tc_global_rate )
+      global_rl.rate_bps = parse_bandwidth( pro_fd->tc_global_rate );
+    if( pro_fd->tc_global_ceil )
+      global_rl.ceil_bps = parse_bandwidth( pro_fd->tc_global_ceil );
+    if( la_tc_init( openvpnserverinfo->dev, &global_rl ) != 0 ){
+      LOGERROR("TC init failed, rate limiting disabled");
+      pro_fd->tc_enabled = TERN_FALSE;
+    }
+  }
   
   switch( rc ){
     case EAGAIN:
@@ -428,6 +441,9 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
               con_value->username,
               getVpnQueueLength(ConnVpnQueue_r));
             la_learn_roles_add(con_value);
+            if(cc->profile->tc_enabled == TERN_TRUE){
+              la_tc_user_add(con_value->ip, cc->rate_limit);
+            }
           }else
           {
             LOGERROR("Join current ip [%s] and username [%s] connection data to the queue error!",con_value->ip,con_value->username);
@@ -442,6 +458,9 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         if(ByValueLeaveVpnQueue(ConnVpnQueue_r,ip,&old_value))
         {
           la_learn_roles_delete(old_value);
+          if(cc->profile->tc_enabled == TERN_TRUE){
+            la_tc_user_delete(old_value->ip);
+          }
         }
         // 更新新数据
         new_value=malloc(sizeof(VpnData));
@@ -464,6 +483,9 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
               new_value->username,
               getVpnQueueLength(ConnVpnQueue_r));
           la_learn_roles_add(new_value);
+          if(cc->profile->tc_enabled == TERN_TRUE){
+            la_tc_user_add(new_value->ip, cc->rate_limit);
+          }
         }else
         {
           LOGERROR("Join current ip [%s] and username [%s] connection data to the queue error!",new_value->ip,new_value->username);
@@ -476,6 +498,9 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         LOGINFO("The current IP %s has exited: %d,action type OPENVPN_PLUGIN_CLIENT_DISCONNECT: %d ",ip,OPENVPN_PLUGIN_CLIENT_DISCONNECT);
         if(ByValueLeaveVpnQueue(ConnVpnQueue_r,ip,&cleanvalue))
         {
+          if(cc && cc->profile && cc->profile->tc_enabled == TERN_TRUE){
+            la_tc_user_delete(cleanvalue->ip);
+          }
           la_learn_roles_delete(cleanvalue);
           LOGINFO("Client [%s] is disconnect.IP [%s] ,current queue %d.",
                   cleanvalue->username,
@@ -501,6 +526,7 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
     LOGINFO( "%s() called", __FUNCTION__ );
   /* stop iptables monitor thread */
   la_iptables_stop_monitor();
+  la_tc_shutdown();
   if( action){
     action->type = LDAP_AUTH_ACTION_QUIT;
     action_push( context->action_list, action );

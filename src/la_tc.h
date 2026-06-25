@@ -66,6 +66,23 @@ extern int  la_tc_user_delete(const char *client_ip);
  */
 extern int  la_tc_reload_global(rate_limit_config_t *new_global);
 
+#else /* !HAVE_LIBNL */
+
+/* 无 libnl 时的 no-op stub */
+static inline int  la_tc_init(const char *tun_dev, rate_limit_config_t *global) {
+  (void)tun_dev; (void)global; return 0;
+}
+static inline void la_tc_shutdown(void) {}
+static inline int  la_tc_user_add(const char *client_ip, rate_limit_config_t *user_rl) {
+  (void)client_ip; (void)user_rl; return 0;
+}
+static inline int  la_tc_user_delete(const char *client_ip) {
+  (void)client_ip; return 0;
+}
+static inline int  la_tc_reload_global(rate_limit_config_t *new_global) {
+  (void)new_global; return 0;
+}
+
 #endif /* HAVE_LIBNL */
 
 #endif /* _LA_TC_H_ */
