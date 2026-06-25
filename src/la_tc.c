@@ -63,6 +63,7 @@ parse_bandwidth(const char *str) {
 #include <linux/pkt_sched.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <pthread.h>
 
 #define TC_CLASSID_MIN    100
 #define TC_CLASSID_MAX    65534
@@ -82,6 +83,7 @@ static struct {
   ip_classid_map_t   *ip_map;
   rate_limit_config_t global_rl;
   int                 initialized;
+  pthread_mutex_t     lock;
 } g_tc = {0};
 
 static int
@@ -292,8 +294,11 @@ la_tc_init(const char *tun_dev, rate_limit_config_t *global) {
     memset(&g_tc.global_rl, 0, sizeof(g_tc.global_rl));
   }
 
+  pthread_mutex_init(&g_tc.lock, NULL);
+
   err = create_htb_root(tun_dev, global);
   if (err != 0) {
+    pthread_mutex_destroy(&g_tc.lock);
     nl_socket_free(g_tc.nl_sock);
     g_tc.nl_sock = NULL;
     return err;
@@ -311,6 +316,8 @@ void
 la_tc_shutdown(void) {
   if (!g_tc.initialized) return;
 
+  pthread_mutex_lock(&g_tc.lock);
+
   delete_htb_root();
 
   ip_classid_map_t *cur = g_tc.ip_map;
@@ -327,6 +334,8 @@ la_tc_shutdown(void) {
   }
 
   g_tc.initialized = 0;
+  pthread_mutex_unlock(&g_tc.lock);
+  pthread_mutex_destroy(&g_tc.lock);
   LOGINFO("la_tc: shutdown complete");
 }
 
@@ -341,6 +350,8 @@ la_tc_user_add(const char *client_ip, rate_limit_config_t *user_rl) {
     return -1;
   }
 
+  pthread_mutex_lock(&g_tc.lock);
+
   uint32_t existing = lookup_classid(client_ip);
   if (existing) {
     LOGWARNING("la_tc: IP %s already has classid %u, deleting old", client_ip, existing);
@@ -351,6 +362,7 @@ la_tc_user_add(const char *client_ip, rate_limit_config_t *user_rl) {
   uint32_t classid = alloc_classid();
   if (classid == 0) {
     LOGERROR("la_tc: classid exhausted, user %s falls back to root class", client_ip);
+    pthread_mutex_unlock(&g_tc.lock);
     return -1;
   }
 
@@ -358,32 +370,38 @@ la_tc_user_add(const char *client_ip, rate_limit_config_t *user_rl) {
   uint32_t ceil = (user_rl && user_rl->ceil_bps) ? user_rl->ceil_bps : g_tc.global_rl.ceil_bps;
   if (rate == 0) {
     LOGDEBUG("la_tc: no rate configured for %s, using global or skipping", client_ip);
+    pthread_mutex_unlock(&g_tc.lock);
     return 0;
   }
 
   struct in_addr addr;
   if (inet_pton(AF_INET, client_ip, &addr) != 1) {
     LOGERROR("la_tc: invalid IP %s", client_ip);
+    pthread_mutex_unlock(&g_tc.lock);
     return -1;
   }
 
   int err = create_user_class(classid, rate, ceil);
   if (err != 0) {
+    pthread_mutex_unlock(&g_tc.lock);
     return err;
   }
 
   err = add_ip_filter(addr.s_addr, classid);
   if (err != 0) {
     delete_user_class(classid);
+    pthread_mutex_unlock(&g_tc.lock);
     return err;
   }
 
   if (add_ip_mapping(client_ip, classid) != 0) {
     delete_user_class(classid);
+    pthread_mutex_unlock(&g_tc.lock);
     return -1;
   }
 
   LOGINFO("la_tc: user %s -> classid %u (rate=%u, ceil=%u)", client_ip, classid, rate, ceil);
+  pthread_mutex_unlock(&g_tc.lock);
   return 0;
 }
 
@@ -391,14 +409,18 @@ int
 la_tc_user_delete(const char *client_ip) {
   if (!g_tc.initialized || !client_ip) return 0;
 
+  pthread_mutex_lock(&g_tc.lock);
+
   uint32_t classid = remove_ip_mapping(client_ip);
   if (classid == 0) {
     LOGDEBUG("la_tc: IP %s not found in mapping, skip delete", client_ip);
+    pthread_mutex_unlock(&g_tc.lock);
     return 0;
   }
 
   delete_user_class(classid);
   LOGINFO("la_tc: user %s removed (classid %u)", client_ip, classid);
+  pthread_mutex_unlock(&g_tc.lock);
   return 0;
 }
 
@@ -406,12 +428,17 @@ int
 la_tc_reload_global(rate_limit_config_t *new_global) {
   if (!g_tc.initialized) return 0;
 
+  pthread_mutex_lock(&g_tc.lock);
+
   if (new_global) {
     g_tc.global_rl = *new_global;
   }
 
   struct rtnl_class *rclass = rtnl_class_alloc();
-  if (!rclass) return -1;
+  if (!rclass) {
+    pthread_mutex_unlock(&g_tc.lock);
+    return -1;
+  }
   struct rtnl_tc *tc = TC_CAST(rclass);
   rtnl_tc_set_ifindex(tc, g_tc.tun_ifindex);
   rtnl_tc_set_kind(tc, "htb");
@@ -429,6 +456,7 @@ la_tc_reload_global(rate_limit_config_t *new_global) {
 
   LOGINFO("la_tc: global rate reloaded (rate=%u, ceil=%u)",
           g_tc.global_rl.rate_bps, g_tc.global_rl.ceil_bps);
+  pthread_mutex_unlock(&g_tc.lock);
   return err;
 }
 
