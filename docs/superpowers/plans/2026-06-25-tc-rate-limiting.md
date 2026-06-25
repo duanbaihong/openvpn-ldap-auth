@@ -1270,7 +1270,7 @@ ratelimits:
   GLOBAL_RATE: "10Mbps"
   GLOBAL_CEIL: "50Mbps"
   TC_USER_RATE_ATTR: "userRxRate"
-  TC_USER_CEIL_ATTR: "userCeil"
+  TC_USER_CEIL_ATTR: "userRxCeil"
 ```
 
 启动 OpenVPN，连接一个用户，然后运行：

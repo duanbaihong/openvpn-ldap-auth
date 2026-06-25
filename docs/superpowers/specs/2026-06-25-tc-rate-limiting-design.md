@@ -120,7 +120,7 @@ ratelimits:
   GLOBAL_RATE: "10Mbps"
   GLOBAL_CEIL: "50Mbps"
   USER_RATE_ATTR: "userRxRate"
-  USER_CEIL_ATTR: "userCeil"
+  USER_CEIL_ATTR: "userRxCeil"
 ```
 
 **YAML 单用户覆盖（静态配置）：**
@@ -186,7 +186,7 @@ rate_limit_config_t *rate_limit;  /* 从 LDAP/YAML 获取的该用户限速配�
   la_ldap_handle_authentication()
     ├─ ldap_find_user() → 获取 userdn
     ├─ ldap_binddn() → 验证密码
-    ├─ 查询 LDAP 用户限速属性 (userRxRate/userCeil)
+    ├─ 查询 LDAP 用户限速属性 (userRxRate/userRxCeil)
     │   → 存入 client_context->rate_limit
     └─ YAML 单用户覆盖优先于 LDAP
 
@@ -216,7 +216,7 @@ Reload 阶段 (监控线程 60s)
 ```
 YAML 单用户覆盖 (USER_OVERRIDE)
     ↓ 未配置则
-LDAP 用户属性 (userRxRate/userCeil)
+LDAP 用户属性 (userRxRate/userRxCeil)
     ↓ 未配置则
 YAML 全局默认 (GLOBAL_RATE/GLOBAL_CEIL)
 ```
