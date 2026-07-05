@@ -66,7 +66,7 @@
 #include "client_context.h"
 #include "ldap_profile.h"
 
-// #include <unistd.h> 
+// #include <unistd.h>
 
 #define DFT_REDIRECT_GATEWAY_FLAGS "def1 bypass-dhcp"
 #define OCONFIG "/etc/openvpn/openvpn-ldap.yaml"
@@ -221,9 +221,9 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   profile_config_t *pro_fd=(profile_config_t *)context->config->profiles->first->data;
   if(pro_fd->enable_ldap_iptable>0) config_load_ldap_groups_profiles(context);
   LdapIptableRoles *tlp=pro_fd->iptable_rules;
-  
+
   config_iptable_role_merge(tlp,iptblrules);
-  // 
+  //
   if( DODEBUG( context->verb ) )
   {
     config_dump( context->config);
@@ -258,13 +258,23 @@ openvpn_plugin_open_v2 (unsigned int *type_mask, const char *argv[], const char 
   if( pro_fd->enable_ldap_iptable > 0 )
     la_iptables_start_monitor( context );
   if( pro_fd->tc_enabled == TERN_TRUE ){
+#ifdef HAVE_LIBNL
     uint32_t rate = 0;
     if( pro_fd->tc_global_rate )
       rate = parse_bandwidth( pro_fd->tc_global_rate );
-    if( la_tc_init( openvpnserverinfo->dev, rate ) != 0 )
+    LOGINFO("TC: initializing on %s, global_rate=%u B/s", openvpnserverinfo->dev, rate);
+    if( la_tc_init( openvpnserverinfo->dev, rate ) != 0 ){
+      LOGERROR("TC: init failed, rate limiting disabled");
       pro_fd->tc_enabled = TERN_FALSE;
+    }
+#else
+    LOGINFO("TC: enabled in config but libnl not compiled in (HAVE_LIBNL undefined)");
+    pro_fd->tc_enabled = TERN_FALSE;
+#endif
+  }else{
+    LOGINFO("TC: not enabled in config (tc_enabled=%s)", ternary_to_string(pro_fd->tc_enabled));
   }
-   
+
   switch( rc ){
     case EAGAIN:
       LOGERROR( "pthread_create returned EAGAIN: lacking resources" );
@@ -414,9 +424,8 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
         }
       }
     }
-    LOGINFO("test111");
     if(string_array_len(argv)>1){
-      if(!strcasecmp(argv[1],"add")) 
+      if(!strcasecmp(argv[1],"add"))
       {
         if(argv[2]!=NULL && argv[3]!=NULL && cc->group_len>0 )
         {
@@ -489,7 +498,7 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
           LOGERROR("Join current ip [%s] and username [%s] connection data to the queue error!",new_value->ip,new_value->username);
         }
       }
-      else if(!strcasecmp(argv[1],"delete")) 
+      else if(!strcasecmp(argv[1],"delete"))
       {
         VpnData *cleanvalue;
         char *ip = (char *)argv[2];
@@ -546,7 +555,7 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
   config_ldap_plugin_free(iptblrules);
   config_ldap_plugin_free(ldapconfig);
   config_ldap_plugin_serverinfo_free(openvpnserverinfo);
-  //pthread_exit(NULL); 
+  //pthread_exit(NULL);
 }
 
 OPENVPN_EXPORT void
