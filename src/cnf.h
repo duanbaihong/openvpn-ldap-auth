@@ -120,6 +120,11 @@ typedef struct profile_config{
 #endif
   ternary_t   enable_ldap_iptable;
   char        *iptable_rules_field;
+  /* TC rate limiting */
+  ternary_t   tc_enabled;
+  char        *tc_global_rate;
+  char        *tc_user_rate_attr;
+  char        *tc_group_rate_attr;
   LdapIptableRoles        *iptable_rules;
 } profile_config_t;
 
@@ -134,6 +139,8 @@ typedef struct config{
 
 
 extern ldap_config_keyvalue_t *iptblrules;
+extern ldap_config_keyvalue_t *tc_limit_config;
+extern ldap_config_keyvalue_t *tc_group_limit_rules;
 extern ldap_config_keyvalue_t *ldapconfig;
 extern ldap_openvpn_server_info *openvpnserverinfo;
 

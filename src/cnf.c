@@ -27,6 +27,8 @@
 /* 全局变量定义（对应 cnf.h 中的 extern 声明） */
 ldap_config_keyvalue_t *iptblrules = NULL;
 ldap_config_keyvalue_t *ldapconfig = NULL;
+ldap_config_keyvalue_t *tc_limit_config = NULL;
+ldap_config_keyvalue_t *tc_group_limit_rules = NULL;
 ldap_openvpn_server_info *openvpnserverinfo = NULL;
 #include <stdlib.h>
 #include <string.h>
@@ -184,6 +186,9 @@ profile_config_free ( profile_config_t *c ){
   check_and_free( c->member_attribute );
   check_and_free( c->default_group_attr );
   check_and_free( c->iptable_rules_field );
+  check_and_free( c->tc_global_rate );
+  check_and_free( c->tc_user_rate_attr );
+  check_and_free( c->tc_group_rate_attr );
   
   ldap_iptables_roles_free( c->iptable_rules );
 
@@ -219,6 +224,7 @@ profile_config_new ( void ){
   la_memset(c->iptable_rules,0,sizeof(LdapIptableRoles));
   c->iptable_rules->clen=0;
   c->enable_ldap_iptable=TERN_UNDEF;
+  c->tc_enabled=TERN_UNDEF;
   return c;
 }
 
@@ -283,6 +289,10 @@ profile_config_dup( const profile_config_t *c ){
   if( c->member_attribute ) nc->member_attribute = strdup( c->member_attribute );
   if( c->default_group_attr ) nc->default_group_attr = strdup( c->default_group_attr );
   if( c->iptable_rules_field ) nc->iptable_rules_field = strdup( c->iptable_rules_field );
+  nc->tc_enabled = c->tc_enabled;
+  if( c->tc_global_rate ) nc->tc_global_rate = strdup( c->tc_global_rate );
+  if( c->tc_user_rate_attr ) nc->tc_user_rate_attr = strdup( c->tc_user_rate_attr );
+  if( c->tc_group_rate_attr ) nc->tc_group_rate_attr = strdup( c->tc_group_rate_attr );
   /* PF */
   if( c->default_pf_rules ) nc->default_pf_rules = strdup( c->default_pf_rules );
   nc->enable_pf = c->enable_pf;
@@ -440,7 +450,31 @@ config_parse_file( config_t *c){
     if(!p->group_map_field[1])
         p->group_map_field[1]=strdup("description");
   }
-     
+
+  if(tc_limit_config && tc_limit_config->klen > 0){
+    for(int i=0; i<tc_limit_config->klen; i++){
+      char *tname = tc_limit_config->keymaps[i].name;
+      if(!strcasecmp(tname, "TC_LIMIT_ENABLED")){
+        p->tc_enabled = string_to_ternary(tc_limit_config->keymaps[i].value[0]);
+      }else if(!strcasecmp(tname, "TC_GLOBAL_LIMIT_RATE")){
+        STRDUP_IFNOTSET(p->tc_global_rate, tc_limit_config->keymaps[i].value[0]);
+      }else if(!strcasecmp(tname, "TC_USER_RATE_LDAP_ATTR")){
+        STRDUP_IFNOTSET(p->tc_user_rate_attr, tc_limit_config->keymaps[i].value[0]);
+      }else if(!strcasecmp(tname, "TC_GROUP_RATE_LDAP_ATTR")){
+        STRDUP_IFNOTSET(p->tc_group_rate_attr, tc_limit_config->keymaps[i].value[0]);
+      }
+    }
+  }
+
+  if(tc_group_limit_rules && tc_group_limit_rules->klen > 0){
+    LOGNOTICE("============================TC Group Limit Rate============================");
+    for(int i=0; i<tc_group_limit_rules->klen; i++){
+      LOGNOTICE("  %s: %s",
+        tc_group_limit_rules->keymaps[i].name ? tc_group_limit_rules->keymaps[i].name : "?",
+        tc_group_limit_rules->keymaps[i].value[0] ? tc_group_limit_rules->keymaps[i].value[0] : "?");
+    }
+  }
+      
 	return rc;
 }
 
@@ -585,13 +619,18 @@ int config_init_ldap_config_set(const char *filename,const char *envp[])
   /* BEGIN new code */
   bool haskey = false,hasvalue = false,
        hassequ = false;
+  ldap_config_keyvalue_t *saved_config = NULL;
   u_int keylayer=0,seqindex=0,keyindex=0;
   
   iptblrules = malloc(sizeof(ldap_config_keyvalue_t));
   ldapconfig = malloc(sizeof(ldap_config_keyvalue_t));
+  tc_limit_config = malloc(sizeof(ldap_config_keyvalue_t));
+  tc_group_limit_rules = malloc(sizeof(ldap_config_keyvalue_t));
   openvpnserverinfo= malloc(sizeof(ldap_openvpn_server_info));
   memset(iptblrules,0,sizeof(ldap_config_keyvalue_t));
   memset(ldapconfig,0,sizeof(ldap_config_keyvalue_t));
+  memset(tc_limit_config,0,sizeof(ldap_config_keyvalue_t));
+  memset(tc_group_limit_rules,0,sizeof(ldap_config_keyvalue_t));
   memset(openvpnserverinfo,0,sizeof(ldap_openvpn_server_info));
 
   // 保存openvpn基本配置信息。
@@ -622,6 +661,11 @@ int config_init_ldap_config_set(const char *filename,const char *envp[])
       keylayer++;seqindex=0;hasvalue=true;haskey=false;hassequ = true;break;
     case YAML_BLOCK_END_TOKEN:
       keylayer--; 
+      if(saved_config && keylayer == 2 && tmpconfig == tc_group_limit_rules){
+        tmpconfig = saved_config;
+        saved_config = NULL;
+        keyindex = tmpconfig->klen;
+      }
       hassequ = false;
       haskey=false;
       seqindex=0;
@@ -639,8 +683,20 @@ int config_init_ldap_config_set(const char *filename,const char *envp[])
         tmpconfig=iptblrules;
         break;
       }
+      if( keylayer==1 && strcasecmp(val,"tc_limit")==0){
+        keyindex=0;
+        tmpconfig=tc_limit_config;
+        break;
+      }
       // ldap config 
       if(haskey){
+        if(keylayer == 2 && tmpconfig == tc_limit_config
+           && !strcasecmp(val, "tc_group_limit_rate")){
+          saved_config = tmpconfig;
+          tmpconfig = tc_group_limit_rules;
+          keyindex = 0;
+          break;
+        }
         if(keyindex>=IP_RULE_KEYS_BUF){
           LOGERROR("Error: IP rule keyname exceeding maximum limit %d [%s]。\n",
                 IP_RULE_KEYS_BUF,
