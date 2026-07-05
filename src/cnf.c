@@ -489,6 +489,9 @@ config_parse_file( config_t *c){
         p->group_rate_limits_len++;
       }
     }
+  }else{
+    LOGNOTICE("TC: TC_GROUP_LIMIT_RATE not found or empty (klen=%d)",
+      tc_group_limit_rules ? tc_group_limit_rules->klen : -1);
   }
       
 	return rc;
