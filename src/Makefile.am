@@ -12,10 +12,14 @@ auth_ldap_SOURCES = utils.h utils.c \
 					la_ldap.h la_ldap.c \
 					ldap_profile.h ldap_profile.c \
 					la_iptables.h la_iptables.c \
+					la_tc.h la_tc.c \
 					client_context.h client_context.c \
 					debug.h debug.c
 
 EXTRA_DIST = openvpn-plugin.h
+
+libopenvpn_ldap_auth_la_CFLAGS = $(LIBNL_CFLAGS)
+libopenvpn_ldap_auth_la_LIBADD = $(LIBNL_LIBS)
 
 #openvpn_ldap_rules_SOURCES = openvpn-ldap-rules.c \
 #					$(auth_ldap_SOURCES)
