@@ -99,5 +99,7 @@ extern int la_ldap_errno( LDAP *ldap );
 extern int ldap_conn_handle_free(LDAP *ldap, char *userdn);
 // 
 extern int config_load_ldap_groups_profiles(ldap_context_t *l);
+extern void la_tc_reload(ldap_context_t *l);
+extern void la_tc_reload_yaml(ldap_context_t *l);
 
 #endif /* __LA_LDAP_H__ */

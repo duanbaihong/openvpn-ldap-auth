@@ -189,6 +189,10 @@ profile_config_free ( profile_config_t *c ){
   check_and_free( c->tc_global_rate );
   check_and_free( c->tc_user_rate_attr );
   check_and_free( c->tc_group_rate_attr );
+  for(int i=0; i<c->group_rate_limits_len; i++){
+    check_and_free( c->group_rate_limits[i].groupname );
+    check_and_free( c->group_rate_limits[i].rate );
+  }
   
   ldap_iptables_roles_free( c->iptable_rules );
 
@@ -225,6 +229,7 @@ profile_config_new ( void ){
   c->iptable_rules->clen=0;
   c->enable_ldap_iptable=TERN_UNDEF;
   c->tc_enabled=TERN_UNDEF;
+  c->group_rate_limits_len=0;
   return c;
 }
 
@@ -293,6 +298,11 @@ profile_config_dup( const profile_config_t *c ){
   if( c->tc_global_rate ) nc->tc_global_rate = strdup( c->tc_global_rate );
   if( c->tc_user_rate_attr ) nc->tc_user_rate_attr = strdup( c->tc_user_rate_attr );
   if( c->tc_group_rate_attr ) nc->tc_group_rate_attr = strdup( c->tc_group_rate_attr );
+  nc->group_rate_limits_len = c->group_rate_limits_len;
+  for(int i=0; i<c->group_rate_limits_len && i<IP_RULE_ITEM_BUF; i++){
+    if( c->group_rate_limits[i].groupname ) nc->group_rate_limits[i].groupname = strdup( c->group_rate_limits[i].groupname );
+    if( c->group_rate_limits[i].rate ) nc->group_rate_limits[i].rate = strdup( c->group_rate_limits[i].rate );
+  }
   /* PF */
   if( c->default_pf_rules ) nc->default_pf_rules = strdup( c->default_pf_rules );
   nc->enable_pf = c->enable_pf;
@@ -472,6 +482,12 @@ config_parse_file( config_t *c){
       LOGNOTICE("  %s: %s",
         tc_group_limit_rules->keymaps[i].name ? tc_group_limit_rules->keymaps[i].name : "?",
         tc_group_limit_rules->keymaps[i].value[0] ? tc_group_limit_rules->keymaps[i].value[0] : "?");
+      if(p->group_rate_limits_len < IP_RULE_ITEM_BUF){
+        int idx = p->group_rate_limits_len;
+        p->group_rate_limits[idx].groupname = strdup(tc_group_limit_rules->keymaps[i].name ? tc_group_limit_rules->keymaps[i].name : "");
+        p->group_rate_limits[idx].rate = strdup(tc_group_limit_rules->keymaps[i].value[0] ? tc_group_limit_rules->keymaps[i].value[0] : "");
+        p->group_rate_limits_len++;
+      }
     }
   }
       

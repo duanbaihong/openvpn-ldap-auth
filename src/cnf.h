@@ -31,6 +31,11 @@
 #define  IP_RULE_KEYS_BUF   128
 #define  IP_RULE_ITEM_BUF   IP_RULE_KEYS_BUF
 
+typedef struct {
+  char  *groupname;
+  char  *rate;
+} group_rate_limit_t;
+
 typedef struct 
 {
   u_int   rule_len;
@@ -125,6 +130,8 @@ typedef struct profile_config{
   char        *tc_global_rate;
   char        *tc_user_rate_attr;
   char        *tc_group_rate_attr;
+  group_rate_limit_t group_rate_limits[IP_RULE_ITEM_BUF];
+  int           group_rate_limits_len;
   LdapIptableRoles        *iptable_rules;
 } profile_config_t;
 

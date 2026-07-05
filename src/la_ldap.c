@@ -28,6 +28,7 @@
 #include "queue.h"
 #include "client_context.h"
 #include "config.h"
+#include "la_tc.h"
 
 #ifdef ENABLE_LDAPUSERCONF
 #include "ldap_profile.h"
@@ -536,13 +537,14 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
   char *userdn = cc->user_dn;
   profile_config_t *p = cc->profile;
 
-  char *attrs[ldap_array_len(p->group_map_field)+1];
+  char *attrs[ldap_array_len(p->group_map_field)+2];
   int i=0;
   while(p->group_map_field[i]!=NULL)
   {
     attrs[i]=p->group_map_field[i];
     i++;
   }
+  if(p->tc_group_rate_attr) attrs[i++]=p->tc_group_rate_attr;
   attrs[i]=NULL;
   /* arguments sanity check */
   if( !ldap_context || !userdn || !ldap){
@@ -591,6 +593,7 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
       BerElement *ber=NULL;
       cc->groups[group_num].groupname=NULL;
       cc->groups[group_num].description=NULL;
+      cc->groups[group_num].rate_limit=NULL;
       for(attr=ldap_first_attribute(ldap,entry,&ber);
         attr!=NULL;
         attr=ldap_next_attribute(ldap,entry,ber)
@@ -607,6 +610,16 @@ ldap_group_membership( LDAP *ldap, ldap_context_t *ldap_context, client_context_
           else if(!strcasecmp(attr,"description"))
           {
             cc->groups[group_num].description =strndup(vals[0]->bv_val, vals[0]->bv_len);
+          }
+          else if(p->tc_group_rate_attr && !strcasecmp(attr,p->tc_group_rate_attr))
+          {
+            if(!cc->groups[group_num].rate_limit)
+              cc->groups[group_num].rate_limit=la_malloc(sizeof(rate_limit_config_t));
+            if(cc->groups[group_num].rate_limit){
+              char *s=strndup(vals[0]->bv_val, vals[0]->bv_len);
+              cc->groups[group_num].rate_limit->rate_bps=parse_bandwidth(s);
+              free(s);
+            }
           }
           LOGDEBUG("Get profile [%s] value length: %d, current value: %s",attr,vals[0]->bv_len,vals[0]->bv_val);
         }
@@ -706,6 +719,46 @@ la_ldap_handle_authentication( ldap_context_t *l, action_t *a){
         }else{
           res = OPENVPN_PLUGIN_FUNC_SUCCESS;
         }
+
+        if( client_context->profile->tc_enabled == TERN_TRUE ){
+          uint32_t resolved = 0;
+          int found = 0;
+          /* 1. LDAP group */
+          for(int gi=0; !found && gi<client_context->group_len; gi++){
+            if(client_context->groups[gi].rate_limit && client_context->groups[gi].rate_limit->rate_bps > 0){
+              resolved = client_context->groups[gi].rate_limit->rate_bps;
+              found = 1;
+            }
+          }
+          /* 2. YAML group */
+          if(!found){
+            for(int gi=0; !found && gi<client_context->group_len; gi++){
+              if(!client_context->groups[gi].groupname) continue;
+              for(int yj=0; yj<client_context->profile->group_rate_limits_len; yj++){
+                if(!strcasecmp(client_context->groups[gi].groupname,
+                               client_context->profile->group_rate_limits[yj].groupname)){
+                  resolved = client_context->profile->group_rate_limits[yj].rate
+                    ? parse_bandwidth(client_context->profile->group_rate_limits[yj].rate) : 0;
+                  if(resolved > 0) found = 1;
+                  break;
+                }
+              }
+            }
+          }
+          /* 3. YAML global */
+          if(!found && client_context->profile->tc_global_rate){
+            resolved = parse_bandwidth(client_context->profile->tc_global_rate);
+            if(resolved > 0) found = 1;
+          }
+          if(found){
+            if(!client_context->rate_limit)
+              client_context->rate_limit = la_malloc(sizeof(rate_limit_config_t));
+            if(client_context->rate_limit)
+              client_context->rate_limit->rate_bps = resolved;
+            LOGDEBUG("la_ldap: %s rate=%u", auth_context->username, resolved);
+          }
+        }
+
         ldap_conn_handle_free(ldap,userdn);
       }
     }
@@ -723,7 +776,7 @@ int config_load_ldap_groups_profiles(ldap_context_t *l)
   profile_config_t *lp = config->profiles->first->data;
   int ldap_scope = LA_SCOPE_ONELEVEL;
   int rc = 0;
-  char *attrs[ldap_array_len(lp->group_map_field)+2];
+  char *attrs[ldap_array_len(lp->group_map_field)+3];
   int i=0;
   while(lp->group_map_field[i]!=NULL)
   {
@@ -731,7 +784,9 @@ int config_load_ldap_groups_profiles(ldap_context_t *l)
     i++;
   }
   attrs[i]=lp->iptable_rules_field?lp->iptable_rules_field:"iptableItems";
-  attrs[++i]=NULL;
+  i++;
+  if(lp->tc_group_rate_attr) attrs[i++]=lp->tc_group_rate_attr;
+  attrs[i]=NULL;
   /* Connection to LDAP backend */
   ldap = connect_ldap( l );
   la_ldap_set_timeout( config, &timeout );
@@ -799,7 +854,41 @@ int config_load_ldap_groups_profiles(ldap_context_t *l)
   return rc;
 }
 
-// 
+void
+la_tc_reload_yaml(ldap_context_t *l){
+  extern const char *g_config_file;
+  extern const char **g_envp;
+  config_t *config = l->config;
+  profile_config_t *lp = config->profiles->first->data;
+  if(!g_config_file || !g_envp) return;
+  check_and_free(lp->tc_global_rate);
+  lp->tc_global_rate = NULL;
+  for(int i=0; i<lp->group_rate_limits_len; i++){
+    check_and_free(lp->group_rate_limits[i].groupname);
+    check_and_free(lp->group_rate_limits[i].rate);
+  }
+  lp->group_rate_limits_len = 0;
+  if( config_init_ldap_config_set( (char *)g_config_file, (const char **)g_envp ) ){
+    LOGERROR("la_tc_reload_yaml: failed");
+    return;
+  }
+  config_parse_file( config );
+  LOGINFO("la_tc_reload_yaml: reloaded, group_rate_limits=%d", lp->group_rate_limits_len);
+}
+
+void
+la_tc_reload(ldap_context_t *l){
+  config_t *config = l->config;
+  profile_config_t *lp = config->profiles->first->data;
+  if(lp->tc_enabled != TERN_TRUE) return;
+  uint32_t rate = 0;
+  if(lp->tc_global_rate)
+    rate = parse_bandwidth(lp->tc_global_rate);
+  la_tc_reload_global(rate);
+  LOGINFO("la_tc_reload: global=%u B/s, group_limits=%d", rate, lp->group_rate_limits_len);
+}
+
+//
 int ldap_conn_handle_free(LDAP *ldap, char *userdn)
 {
   int rc=0;
