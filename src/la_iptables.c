@@ -394,6 +394,9 @@ int la_iptables_reload(ldap_context_t *l) {
     ldap_iptables_roles_free(old_rules);
     config_iptables_printf(new_rules);
 
+    la_tc_reload_yaml(l);
+    la_tc_reload(l);
+
     pthread_mutex_unlock(&action_mutex);
     LOGINFO("iptables rules reloaded: %d chains", new_rules->clen);
     return 0;
