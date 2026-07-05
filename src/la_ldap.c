@@ -855,28 +855,6 @@ int config_load_ldap_groups_profiles(ldap_context_t *l)
 }
 
 void
-la_tc_reload_yaml(ldap_context_t *l){
-  extern const char *g_config_file;
-  extern const char **g_envp;
-  config_t *config = l->config;
-  profile_config_t *lp = config->profiles->first->data;
-  if(!g_config_file || !g_envp) return;
-  check_and_free(lp->tc_global_rate);
-  lp->tc_global_rate = NULL;
-  for(int i=0; i<lp->group_rate_limits_len; i++){
-    check_and_free(lp->group_rate_limits[i].groupname);
-    check_and_free(lp->group_rate_limits[i].rate);
-  }
-  lp->group_rate_limits_len = 0;
-  if( config_init_ldap_config_set( (char *)g_config_file, (const char **)g_envp ) ){
-    LOGERROR("la_tc_reload_yaml: failed");
-    return;
-  }
-  config_parse_file( config );
-  LOGINFO("la_tc_reload_yaml: reloaded, group_rate_limits=%d", lp->group_rate_limits_len);
-}
-
-void
 la_tc_reload(ldap_context_t *l){
   config_t *config = l->config;
   profile_config_t *lp = config->profiles->first->data;
