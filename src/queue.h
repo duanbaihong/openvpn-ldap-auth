@@ -1,9 +1,11 @@
 #include <stdbool.h>
+#include "la_tc.h"
 
 typedef struct Vpn_Conn_Groups_t 
 {
     char  *groupname;
     char  *description;
+    rate_limit_config_t *rate_limit;
 }VpnConnGroups;
 
 // 保存连接信息

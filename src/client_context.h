@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "cnf.h"
+#include "la_tc.h"
 
 typedef struct client_context {
   char  *user_id;
@@ -35,6 +36,7 @@ typedef struct client_context {
 #endif
   int  group_len;
   struct Vpn_Conn_Groups_t *groups;
+  rate_limit_config_t *rate_limit;
   pthread_mutex_t mutex;
 } client_context_t;
 
