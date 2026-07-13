@@ -167,7 +167,12 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
 {
   int ret = -1,len;
   if(!filter_name) return ret;
-  char * filename="/usr/bin/sudo -u root";
+  char * filename;
+  if( geteuid() == 0 ){
+    filename = "";
+  }else{
+    filename = "/usr/bin/sudo -u root";
+  }
   char * cmd_argv = NULL;
   char * iptables_cmd="/sbin/iptables -N";
   // int len=strlen(filename)+strlen(iptables_cmd)+strlen(filter_name)+strlen(rule_item)+4;
@@ -241,6 +246,10 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
         rule_item,
         strerror(errno),
         errno);
+      if(geteuid() != 0){
+        LOGNOTICE("HINT: Add the following to /etc/sudoers (run visudo):");
+        LOGNOTICE("  openvpn    ALL=(ALL)    NOPASSWD:/sbin/iptables");
+      }
     }else{
       LOGINFO("RUN CMD: %s %s %s. return code=%d",iptables_cmd,filter_name,rule_item,ret);
     }
