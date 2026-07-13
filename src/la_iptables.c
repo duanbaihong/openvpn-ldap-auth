@@ -8,7 +8,7 @@
 // #include <sys/types.h>
 // #include <sys/wait.h>
 // #include <unistd.h>
-#include <errno.h> 
+#include <errno.h>
 #include <unistd.h>
 #include <queue.h>
 #include "client_context.h"
@@ -31,10 +31,10 @@ int la_learn_roles_add(VpnData *vdata)
         continue;
     }
     // 计算所需缓冲区大小，+1 用于空终止符
-    int len = snprintf(NULL, 0, IPT_RULES_FMT, 
-                      vdata->ip, 
-                      vdata->groups[i].groupname, 
-                      vdata->username, 
+    int len = snprintf(NULL, 0, IPT_RULES_FMT,
+                      vdata->ip,
+                      vdata->groups[i].groupname,
+                      vdata->username,
                       desc) + 1;
     char  rules_item[len];
     // 格式化字符串
@@ -43,7 +43,7 @@ int la_learn_roles_add(VpnData *vdata)
             vdata->groups[i].groupname,
             vdata->username,
             desc);
-    
+
     int cmd_ret=ldap_plugin_run_system(IPTABLE_INSERT_ROLE,"FORWARD",rules_item);
     if (cmd_ret != 0) {
       LOGERROR("Failed to add rule for group %s,%s", vdata->groups[i].groupname,rules_item);
@@ -72,17 +72,17 @@ int la_learn_roles_delete(VpnData *vdata)
         continue;
     }
     // 计算所需缓冲区大小，+1 用于空终止符
-    int len = snprintf(NULL, 0, 
-        IPT_RULES_FMT, 
-        vdata->ip, 
-        vdata->groups[i].groupname, 
-        vdata->username, 
+    int len = snprintf(NULL, 0,
+        IPT_RULES_FMT,
+        vdata->ip,
+        vdata->groups[i].groupname,
+        vdata->username,
         desc) + 1;
     // int len=strlen(IPT_RULES_FMT)+strlen(vdata->ip)+strlen(vdata->username)+strlen(vdata->groups[i].groupname)+strlen(desc);
     char rules_item[len];
     // snprintf(rules_item,IPT_RULES_FMT,vdata->ip,vdata->groups[i].groupname,vdata->username,desc);
     // 格式化字符串
-    snprintf(rules_item, len, 
+    snprintf(rules_item, len,
         IPT_RULES_FMT,
         vdata->ip,
         vdata->groups[i].groupname,
@@ -131,7 +131,7 @@ void config_uninit_iptable_rules(LdapIptableRoles *rules)
       ldap_plugin_run_system(IPTABLE_DELETE_FILTER,rules->chains[i].chain_name,"");
     }
     i++;
-  } 
+  }
 }
 
 void config_init_iptable_rules(LdapIptableRoles *rules)
@@ -154,8 +154,11 @@ void config_init_iptable_rules(LdapIptableRoles *rules)
         if(rules->chains[i].rule_item[m]!=NULL)
         {
           ldap_plugin_run_system(IPTABLE_APPEND_ROLE,rules->chains[i].chain_name,rules->chains[i].rule_item[m]);
-        }
-      }
+  }
+  /* 最后清空 FORWARD、INPUT 链，清理残留的 per-user 规则 */
+  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "FORWARD", "");
+  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "INPUT", "");
+}
       ldap_plugin_run_system(IPTABLE_APPEND_ROLE,rules->chains[i].chain_name,"-p all -j RETURN");
     }
   }
@@ -247,8 +250,8 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
         strerror(errno),
         errno);
       if(geteuid() != 0){
-        LOGNOTICE("HINT: Add the following to /etc/sudoers (run visudo):");
-        LOGNOTICE("  openvpn    ALL=(ALL)    NOPASSWD:/sbin/iptables");
+        LOGERROR("HINT: Add the following to /etc/sudoers (run visudo):");
+        LOGERROR("openvpn    ALL=(ALL)    NOPASSWD:/sbin/iptables");
       }
     }else{
       LOGINFO("RUN CMD: %s %s %s. return code=%d",iptables_cmd,filter_name,rule_item,ret);

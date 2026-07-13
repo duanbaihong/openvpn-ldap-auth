@@ -555,10 +555,6 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
   config_ldap_plugin_free(iptblrules);
   config_ldap_plugin_free(ldapconfig);
   config_ldap_plugin_serverinfo_free(openvpnserverinfo);
-  /* 最后清理：清空 FORWARD 和 INPUT 链 */
-  LOGINFO("iptables: flushing FORWARD and INPUT chains");
-  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "FORWARD", "");
-  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "INPUT", "");
 }
 
 OPENVPN_EXPORT void
