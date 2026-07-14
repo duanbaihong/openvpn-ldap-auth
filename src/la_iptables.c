@@ -132,6 +132,9 @@ void config_uninit_iptable_rules(LdapIptableRoles *rules)
     }
     i++;
   }
+  /* 最后清空 FORWARD、INPUT 链，清理残留的 per-user 规则 */
+  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "FORWARD", "");
+  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "INPUT", "");
 }
 
 void config_init_iptable_rules(LdapIptableRoles *rules)
@@ -154,11 +157,8 @@ void config_init_iptable_rules(LdapIptableRoles *rules)
         if(rules->chains[i].rule_item[m]!=NULL)
         {
           ldap_plugin_run_system(IPTABLE_APPEND_ROLE,rules->chains[i].chain_name,rules->chains[i].rule_item[m]);
-  }
-  /* 最后清空 FORWARD、INPUT 链，清理残留的 per-user 规则 */
-  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "FORWARD", "");
-  ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "INPUT", "");
-}
+        }
+      }
       ldap_plugin_run_system(IPTABLE_APPEND_ROLE,rules->chains[i].chain_name,"-p all -j RETURN");
     }
   }
