@@ -534,33 +534,31 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
   ldap_context_t *context = (ldap_context_t *) handle;
   action_t *action = action_new( );
 
-  if (DOINFO (context->verb))
-    LOGINFO( "%s() called", __FUNCTION__ );
-  /* stop iptables monitor thread */
+  LOGINFO("close: starting cleanup");
   la_iptables_stop_monitor();
+  LOGINFO("close: monitor stopped");
   la_tc_shutdown();
+  LOGINFO("close: tc shutdown done");
   if( action){
     action->type = LDAP_AUTH_ACTION_QUIT;
     action_push( context->action_list, action );
-    if( DODEBUG( context->verb ) )
-      LOGDEBUG ("Waiting for thread to return");
     if(action_thread !=0 )
       pthread_join( action_thread, NULL );
-    if( DODEBUG( context->verb ) )
-      LOGDEBUG ("Thread returned queries left in queue: %d", list_length( context->action_list ));
+    LOGINFO("close: action thread joined");
     pthread_attr_destroy( &action_thread_attr );
     pthread_mutex_destroy( &action_mutex );
     pthread_cond_destroy( &action_cond );
   }
-  // 释放iptable规则
+  LOGINFO("close: flushing iptables");
   LdapIptableRoles *tpl=((profile_config_t *)context->config->profiles->first->data)->iptable_rules;
   config_uninit_iptable_rules(tpl);
   if(DestroyVpnQueue(ConnVpnQueue_r))
-    LOGINFO("free queue success.");
+    LOGINFO("close: queue freed");
   ldap_context_free( context );
   config_ldap_plugin_free(iptblrules);
   config_ldap_plugin_free(ldapconfig);
   config_ldap_plugin_serverinfo_free(openvpnserverinfo);
+  LOGNOTICE("close: cleanup complete");
 }
 
 OPENVPN_EXPORT void
