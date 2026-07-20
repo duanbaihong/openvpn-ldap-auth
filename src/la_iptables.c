@@ -120,22 +120,22 @@ static void config_default_iptable_rules(iptable_rules_action_type ctype)
 void config_uninit_iptable_rules(LdapIptableRoles *rules)
 {
   int i=0;
-  // LOGINFO("%s",rules);
-  if(!rules) return ;
-  config_default_iptable_rules(IPTABLE_DELETE_ROLE);
-  while (i <rules->clen)
-  {
-    if(rules->chains[i].chain_name!=NULL)
+  if(rules){
+    config_default_iptable_rules(IPTABLE_DELETE_ROLE);
+    while (i <rules->clen)
     {
-      ldap_plugin_run_system(IPTABLE_EMPTY_FILTER,rules->chains[i].chain_name,"");
-      ldap_plugin_run_system(IPTABLE_DELETE_FILTER,rules->chains[i].chain_name,"");
+      if(rules->chains[i].chain_name!=NULL)
+      {
+        ldap_plugin_run_system(IPTABLE_EMPTY_FILTER,rules->chains[i].chain_name,"");
+        ldap_plugin_run_system(IPTABLE_DELETE_FILTER,rules->chains[i].chain_name,"");
+      }
+      i++;
     }
-    i++;
   }
-  /* 最后清空 FORWARD、INPUT 链，清理残留的 per-user 规则 */
   ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "FORWARD", "");
   ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "INPUT", "");
   ldap_plugin_run_system(IPTABLE_EMPTY_MASQUERADE_ROLE, "POSTROUTING", "");
+  LOGNOTICE("iptables: cleanup done (FORWARD, INPUT, POSTROUTING flushed)");
 }
 
 void config_init_iptable_rules(LdapIptableRoles *rules)
