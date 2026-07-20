@@ -106,13 +106,15 @@ create_htb_root(const char *dev, uint32_t rate_bps) {
 
 static void
 delete_htb_root(void) {
+  if (!g_tc.nl_sock) return;
   struct rtnl_qdisc *q = rtnl_qdisc_alloc();
   if (!q) return;
   struct rtnl_tc *tc = TC_CAST(q);
   rtnl_tc_set_ifindex(tc, g_tc.tun_ifindex);
   rtnl_tc_set_handle(tc, TC_HTB_HANDLE);
   rtnl_tc_set_kind(tc, "htb");
-  rtnl_qdisc_delete(g_tc.nl_sock, q);
+  int err = rtnl_qdisc_delete(g_tc.nl_sock, q);
+  if (err) LOGDEBUG("la_tc: delete qdisc (interface may be gone): %s", nl_geterror(err));
   rtnl_qdisc_put(q);
 }
 

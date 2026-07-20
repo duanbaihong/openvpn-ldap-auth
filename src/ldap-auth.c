@@ -534,26 +534,24 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
   ldap_context_t *context = (ldap_context_t *) handle;
   action_t *action = action_new( );
 
-  LOGINFO("close: starting cleanup");
+  LOGINFO( "%s() called", __FUNCTION__ );
   la_iptables_stop_monitor();
-  LOGINFO("close: monitor stopped");
-  la_tc_shutdown();
-  LOGINFO("close: tc shutdown done");
   if( action){
     action->type = LDAP_AUTH_ACTION_QUIT;
     action_push( context->action_list, action );
     if(action_thread !=0 )
       pthread_join( action_thread, NULL );
-    LOGINFO("close: action thread joined");
     pthread_attr_destroy( &action_thread_attr );
     pthread_mutex_destroy( &action_mutex );
     pthread_cond_destroy( &action_cond );
   }
-  LOGINFO("close: flushing iptables");
+  /* iptables cleanup first (does not depend on TUN interface) */
   LdapIptableRoles *tpl=((profile_config_t *)context->config->profiles->first->data)->iptable_rules;
   config_uninit_iptable_rules(tpl);
+  /* TC cleanup last (TUN interface may already be deleted) */
+  la_tc_shutdown();
   if(DestroyVpnQueue(ConnVpnQueue_r))
-    LOGINFO("close: queue freed");
+    LOGINFO("free queue success.");
   ldap_context_free( context );
   config_ldap_plugin_free(iptblrules);
   config_ldap_plugin_free(ldapconfig);
