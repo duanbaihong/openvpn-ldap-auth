@@ -135,7 +135,7 @@ void config_uninit_iptable_rules(LdapIptableRoles *rules)
   /* 最后清空 FORWARD、INPUT 链，清理残留的 per-user 规则 */
   ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "FORWARD", "");
   ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "INPUT", "");
-  ldap_plugin_run_system(IPTABLE_INSERT_MASQUERADE_ROLE, "POSTROUTING", "");
+  ldap_plugin_run_system(IPTABLE_EMPTY_MASQUERADE_ROLE, "POSTROUTING", "");
 }
 
 void config_init_iptable_rules(LdapIptableRoles *rules)
@@ -229,6 +229,12 @@ ldap_plugin_run_system(iptable_rules_action_type cmd_type,char * filter_name, ch
       len=snprintf(NULL,0,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item)+1;
       cmd_argv=la_malloc(len);
       snprintf(cmd_argv,len,"%s %s %s %s",filename,iptables_cmd,filter_name,rule_item);
+      break;
+    case IPTABLE_EMPTY_MASQUERADE_ROLE:
+      iptables_cmd="/sbin/iptables -t nat -F";
+      len=snprintf(NULL,0,"%s %s %s",filename,iptables_cmd,filter_name)+1;
+      cmd_argv=la_malloc(len);
+      snprintf(cmd_argv,len,"%s %s %s",filename,iptables_cmd,filter_name);
       break;
     case IPTABLE_INSERT_ROLE_AT:
       iptables_cmd="/sbin/iptables -I";
