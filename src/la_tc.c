@@ -125,12 +125,13 @@ la_tc_init(const char *dev, uint32_t global_rate_bps) {
   if (err) { LOGERROR("la_tc: nl_connect failed"); nl_socket_free(g_tc.nl_sock); g_tc.nl_sock=NULL; return err; }
   pthread_mutex_init(&g_tc.lock, NULL);
   g_tc.global_rate_bps = global_rate_bps;
-  err = create_htb_root(dev, global_rate_bps);
+  uint32_t htb_rate = global_rate_bps ? global_rate_bps : 1250000000U;
+  err = create_htb_root(dev, htb_rate);
   if (err) { pthread_mutex_destroy(&g_tc.lock); nl_socket_free(g_tc.nl_sock); g_tc.nl_sock=NULL; return err; }
   g_tc.next_classid = TC_CLASSID_MIN;
   g_tc.ip_map = NULL;
   g_tc.initialized = 1;
-  LOGNOTICE("la_tc: enabled on %s, global=%u B/s", dev, global_rate_bps);
+  LOGNOTICE("la_tc: enabled on %s, global=%u B/s%s", dev, global_rate_bps, global_rate_bps ? "" : " (unlimited)");
   return 0;
 }
 
@@ -270,6 +271,7 @@ la_tc_reload_global(uint32_t new_rate_bps) {
   if (!g_tc.initialized) return 0;
   pthread_mutex_lock(&g_tc.lock);
   g_tc.global_rate_bps = new_rate_bps;
+  uint32_t htb_rate = new_rate_bps ? new_rate_bps : 1250000000U;
   struct rtnl_class *c = rtnl_class_alloc();
   if (!c) { pthread_mutex_unlock(&g_tc.lock); return -1; }
   struct rtnl_tc *tc = TC_CAST(c);
@@ -277,8 +279,8 @@ la_tc_reload_global(uint32_t new_rate_bps) {
   rtnl_tc_set_kind(tc, "htb");
   rtnl_tc_set_handle(tc, TC_ROOT_CLASSID);
   rtnl_tc_set_parent(tc, TC_HTB_HANDLE);
-  rtnl_htb_set_rate(c, new_rate_bps);
-  rtnl_htb_set_ceil(c, new_rate_bps);
+  rtnl_htb_set_rate(c, htb_rate);
+  rtnl_htb_set_ceil(c, htb_rate);
   int err = rtnl_class_add(g_tc.nl_sock, c, NLM_F_REPLACE);
   rtnl_class_put(c);
   pthread_mutex_unlock(&g_tc.lock);
