@@ -64,10 +64,23 @@ create_htb_root(const char *dev, uint32_t rate_bps) {
     LOGERROR("la_tc: interface %s not found", dev);
     return -1;
   }
+
+  /* 先删除已有的 root qdisc（如 fq_codel） */
+  struct rtnl_qdisc *old = rtnl_qdisc_alloc();
+  if (old) {
+    struct rtnl_tc *otc = TC_CAST(old);
+    rtnl_tc_set_ifindex(otc, g_tc.tun_ifindex);
+    rtnl_tc_set_parent(otc, TC_H_ROOT);
+    int delerr = rtnl_qdisc_delete(g_tc.nl_sock, old);
+    if (delerr) LOGDEBUG("la_tc: delete old qdisc (ok if none): %s", nl_geterror(delerr));
+    rtnl_qdisc_put(old);
+  }
+
   struct rtnl_qdisc *q = rtnl_qdisc_alloc();
   if (!q) return -1;
   struct rtnl_tc *tc = TC_CAST(q);
   rtnl_tc_set_ifindex(tc, g_tc.tun_ifindex);
+  rtnl_tc_set_parent(tc, TC_H_ROOT);
   rtnl_tc_set_handle(tc, TC_HTB_HANDLE);
   rtnl_tc_set_kind(tc, "htb");
   rtnl_htb_set_defcls(q, TC_ROOT_CLASSID);
