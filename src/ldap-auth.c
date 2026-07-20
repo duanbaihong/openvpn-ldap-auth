@@ -450,8 +450,14 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
               con_value->username,
               getVpnQueueLength(ConnVpnQueue_r));
             la_learn_roles_add(con_value);
-            if(cc->profile->tc_enabled == TERN_TRUE && cc->rate_limit)
-              la_tc_user_add(con_value->ip, cc->rate_limit->rate_bps);
+            if(cc->profile->tc_enabled == TERN_TRUE){
+              if(cc->rate_limit){
+                LOGINFO("TC: calling la_tc_user_add ip=%s rate=%u", con_value->ip, cc->rate_limit->rate_bps);
+                la_tc_user_add(con_value->ip, cc->rate_limit->rate_bps);
+              }else{
+                LOGNOTICE("TC: tc_enabled but cc->rate_limit is NULL, ip=%s", con_value->ip);
+              }
+            }
           }else
           {
             LOGERROR("Join current ip [%s] and username [%s] connection data to the queue error!",con_value->ip,con_value->username);
