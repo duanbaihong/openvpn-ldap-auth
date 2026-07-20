@@ -425,7 +425,7 @@ static void *iptables_monitor_thread(void *arg) {
     g_iptables_monitor_running = 1;
     LOGINFO("iptables monitor thread started");
     while (g_iptables_monitor_running) {
-        sleep(60);
+        for(int i=0; i<60 && g_iptables_monitor_running; i++) sleep(1);
         if (!g_iptables_monitor_running) break;
         la_iptables_reload(l);
     }
@@ -441,6 +441,7 @@ int la_iptables_start_monitor(ldap_context_t *l) {
 void la_iptables_stop_monitor(void) {
     if (g_iptables_monitor_thread == 0) return;
     g_iptables_monitor_running = 0;
+    pthread_cancel(g_iptables_monitor_thread);
     pthread_join(g_iptables_monitor_thread, NULL);
     g_iptables_monitor_thread = 0;
 }

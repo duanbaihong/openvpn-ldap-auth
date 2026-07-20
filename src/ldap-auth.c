@@ -539,8 +539,10 @@ openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
   if( action){
     action->type = LDAP_AUTH_ACTION_QUIT;
     action_push( context->action_list, action );
-    if(action_thread !=0 )
+    if(action_thread !=0 ){
+      pthread_cancel(action_thread);
       pthread_join( action_thread, NULL );
+    }
     pthread_attr_destroy( &action_thread_attr );
     pthread_mutex_destroy( &action_mutex );
     pthread_cond_destroy( &action_cond );
