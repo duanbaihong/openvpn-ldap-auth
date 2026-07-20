@@ -111,6 +111,7 @@ delete_htb_root(void) {
   if (!q) return;
   struct rtnl_tc *tc = TC_CAST(q);
   rtnl_tc_set_ifindex(tc, g_tc.tun_ifindex);
+  rtnl_tc_set_parent(tc, TC_H_ROOT);
   rtnl_tc_set_handle(tc, TC_HTB_HANDLE);
   rtnl_tc_set_kind(tc, "htb");
   int err = rtnl_qdisc_delete(g_tc.nl_sock, q);
