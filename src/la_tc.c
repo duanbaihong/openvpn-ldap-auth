@@ -214,7 +214,7 @@ la_tc_user_add(const char *ip, uint32_t rate_bps) {
     rtnl_tc_set_handle(tc, TC_H_MAKE(1, classid));
     rtnl_tc_set_parent(tc, TC_HTB_HANDLE);
     rtnl_tc_set_kind(tc, "u32");
-    rtnl_u32_add_key(cls, ntohl(addr.s_addr), 0xFFFFFFFF, 0, 0);
+    rtnl_u32_add_key(cls, addr.s_addr, 0xFFFFFFFF, 0, 12);
     rtnl_u32_set_classid(cls, TC_H_MAKE(1, classid));
     rtnl_cls_add(g_tc.nl_sock, cls, NLM_F_CREATE);
     rtnl_cls_put(cls);
