@@ -692,6 +692,9 @@ int config_init_ldap_config_set(const char *filename,const char *envp[])
       break;
     case YAML_SCALAR_TOKEN: 
       val=(char *)token.data.scalar.value;
+      if(keylayer==1){
+        LOGDEBUG("YAML keylayer=1 scalar: [%s] haskey=%d hasvalue=%d", val, haskey, hasvalue);
+      }
       if( keylayer==1 && strcasecmp(val,"ldap")==0){
         keyindex=0;
         tmpconfig=ldapconfig;
