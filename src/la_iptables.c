@@ -135,6 +135,7 @@ void config_uninit_iptable_rules(LdapIptableRoles *rules)
   /* 最后清空 FORWARD、INPUT 链，清理残留的 per-user 规则 */
   ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "FORWARD", "");
   ldap_plugin_run_system(IPTABLE_EMPTY_FILTER, "INPUT", "");
+  ldap_plugin_run_system(IPTABLE_INSERT_MASQUERADE_ROLE, "POSTROUTING", "");
 }
 
 void config_init_iptable_rules(LdapIptableRoles *rules)
