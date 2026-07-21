@@ -589,6 +589,7 @@ config_is_redirect_gw_enabled_for_profile( profile_config_t *p ){
 
 void config_ldap_plugin_serverinfo_free(ldap_openvpn_server_info *info)
 {
+  if (!info) return;
   check_and_free((char *)info->dev);
   check_and_free((char *)info->listenip);
   check_and_free((char *)info->netmask);
@@ -601,6 +602,7 @@ void config_ldap_plugin_serverinfo_free(ldap_openvpn_server_info *info)
 
 void config_ldap_plugin_free(ldap_config_keyvalue_t *rules)
 {
+  if (!rules) return;
   int i=0;
   while (i <rules->klen)
   {

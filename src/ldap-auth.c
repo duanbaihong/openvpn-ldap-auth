@@ -531,6 +531,12 @@ openvpn_plugin_func_v2 (openvpn_plugin_handle_t handle,
 OPENVPN_EXPORT void
 openvpn_plugin_close_v1 (openvpn_plugin_handle_t handle)
 {
+  /* OpenVPN 在 open_v2 返回 NULL 时仍会调 abort_v1（其转发至 close_v1），
+   * 此时 handle 为 NULL，下方 context 解引用将直接段错误，需早返回。 */
+  if ( handle == NULL ){
+    LOGINFO( "%s() called with NULL handle (plugin open failed), skip cleanup", __FUNCTION__ );
+    return;
+  }
   ldap_context_t *context = (ldap_context_t *) handle;
   action_t *action = action_new( );
 
